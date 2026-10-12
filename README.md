@@ -3,8 +3,8 @@
 **Android port of [PokéSurvivor](https://github.com/JPTER78/pokesurvivor) by
 JPTER78, made for the AYN Thor handheld.**
 
-PokéSurvivor is a Pokémon bullet-heaven in the style of Vampire Survivors:
-sprites from *Pokémon Mystery Dungeon*, a roguelike layer,
+PokéSurvivor is a Pokémon bullet-heaven in the style of Survivor.io and
+Megabonk: sprites from *Pokémon Mystery Dungeon*, a roguelike layer,
 966 Pokémon from all 9 generations, shinies and a gacha per region. This
 repository wraps the same game in an Android app and adds full controller
 support for the Thor. The game itself is free, and so is this app.
