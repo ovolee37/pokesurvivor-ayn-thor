@@ -230,10 +230,10 @@ at commit `f552173`.
   files, icons, splash screens, example tests), `capacitor.config.json`,
   `package.json`, `package-lock.json`.
 
-Later changes (app v1.2):
+Later changes (app v1.2 and v1.3):
 
 - **Upstream update:** merged [JPTER78/pokesurvivor](https://github.com/JPTER78/pokesurvivor)
-  up to commit `65b35ef`.
+  up to commit `65b35ef` (v1.2) and `511c65e` (v1.3: fixed move slots, iPhone touch fixes).
 - **Manual aiming with the right stick**, based on the fork by
   [Iván Freire (IvanFreireDacoba)](https://github.com/IvanFreireDacoba/pokesurvivor)
   (commit `2451db3`), ported to this controller code in
