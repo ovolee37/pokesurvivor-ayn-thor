@@ -523,6 +523,11 @@ G.I18n.add({
   'El juego ha fallado: tu partida se ha guardado hasta aquí': 'The game crashed: your run has been saved up to this point',
   'Pausa: esperando a {x} (anfitrión)…': 'Paused: waiting for {x} (host)…',
   'Novedades': "What's new",
+  'No se pudo conectar (reintentando…)': 'Could not connect (retrying…)',
+  'No se puede conectar con algún amigo: su red (o la tuya) no deja jugar en grupo. Probad con otra wifi o datos móviles; se reintenta solo.':
+    "Can't connect to one of your friends: their network (or yours) doesn't allow group play. Try another Wi-Fi or mobile data; it retries automatically.",
+  'Ahora mismo no se pueden crear cuentas nuevas. Si ya tienes cuenta, entra normal; si no, puedes jugar como invitado.':
+    'New accounts cannot be created right now. If you already have an account, sign in as usual; otherwise, you can play as a guest.',
   'Atajos de movimientos': 'Move shortcuts', 'Libre': 'Free',
   'Elige qué movimiento va siempre en cada hueco (teclas 1-4 o los iconos de abajo), para la memoria muscular. Si aún no tienes tantos movimientos, va al hueco más cercano.':
     'Choose which move always goes in each slot (keys 1-4 or the icons at the bottom), for muscle memory. If you do not have that many moves yet, it goes to the closest slot.',

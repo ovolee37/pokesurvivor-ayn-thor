@@ -24,3 +24,7 @@ new_sqlite_classes = ["Online"]
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["Mau"]
+
+# Cuenta de Cloudflare (no es secreto): la usa el tope del TURN para leer el gasto del mes.
+[vars]
+ACCOUNT_ID = "006ddd81b11d67ea85a2fcbf5f221ea1"

@@ -24,6 +24,11 @@ G.Net = (() => {
   const ICE = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
                { urls: 'stun:stun.cloudflare.com:3478' }];
   const DIRECT_TIMEOUT = 9000;     // ms para conseguir canal directo antes de usar el relé
+  // Relé por la Realtime Database APAGADO (12-10-2026): a 1 $ el GB era lo que más
+  // costaba del cooperativo. Sin conexión directa ni TURN, esa pareja no puede jugar
+  // junta ('failed') y el anfitrión lo reintenta cada RETRY_MS. Por la base de datos
+  // sólo pasa la señalización (unos pocos mensajes pequeños para conectarse).
+  const ALLOW_RELAY = false, RETRY_MS = 15000;
 
   // ---------------- TURN (Cloudflare) ----------------
   const TURN_URL = 'https://turn.pokesurvivor.com/';
@@ -83,7 +88,7 @@ G.Net = (() => {
     // oferta). Así, si no llega nunca, se sigue por el relé y se sabe cuándo se va.
     if (!isHost) {
       const p = { pc: null, dc: null, mode: 'connecting', timer: 0 };
-      p.timer = setTimeout(() => { if (p.mode === 'connecting') { p.mode = 'relay'; emitPeer(hostId); } }, DIRECT_TIMEOUT + 3000);
+      p.timer = setTimeout(() => { if (p.mode === 'connecting') { p.mode = ALLOW_RELAY ? 'relay' : 'failed'; emitPeer(hostId); } }, DIRECT_TIMEOUT + 3000);
       peers.set(hostId, p);
     }
   }
@@ -127,7 +132,7 @@ G.Net = (() => {
   function wireChannel(u, p, dc) {
     p.dc = dc;
     dc.onopen = () => { clearTimeout(p.timer); p.mode = 'direct'; emitPeer(u); checkTurn(p); };
-    dc.onclose = () => { if (p.mode === 'direct') { p.mode = 'relay'; emitPeer(u); } };
+    dc.onclose = () => { if (p.mode === 'direct') { p.mode = 'connecting'; useRelay(u); } };
     dc.onmessage = e => {
       let m;
       try { m = JSON.parse(e.data); } catch (err) { return; }
@@ -152,9 +157,14 @@ G.Net = (() => {
 
   function useRelay(u) {
     const p = peers.get(u);
-    if (!p || p.mode === 'direct' || p.mode === 'closed') return;
-    p.mode = 'relay';
+    if (!p || p.mode === 'direct' || p.mode === 'closed' || p.mode === 'failed') return;
+    if (ALLOW_RELAY) { p.mode = 'relay'; emitPeer(u); return; }
+    // Sin relé: no se puede jugar con esa persona por ahora. El anfitrión reintenta.
+    clearTimeout(p.timer);
+    p.mode = 'failed';
+    try { if (p.pc) p.pc.close(); } catch (e) { /* nada */ }
     emitPeer(u);
+    if (isHost) p.timer = setTimeout(() => { if (peers.get(u) === p && p.mode === 'failed' && roomId) { drop(u, true); connect(u); } }, RETRY_MS);
   }
 
   /** Anfitrión: abre conexión con un invitado. */
@@ -228,6 +238,9 @@ G.Net = (() => {
     if (p && p.dc && p.dc.readyState === 'open') {
       try { p.dc.send(JSON.stringify(msg)); return; } catch (e) { /* cae al relé */ }
     }
+    // Sin relé, los datos de la partida no van por la base de datos (se pierden: esa
+    // pareja no está conectada). Sólo pasa el aviso de empezar.
+    if (!ALLOW_RELAY && !(msg && msg.k === 'start')) return;
     stats.relaySent++;
     relayPush(to, { f: uid, d: msg });
   }
@@ -245,7 +258,7 @@ G.Net = (() => {
     on(fn) { handlers.add(fn); }, off(fn) { handlers.delete(fn); },
     onPeer(fn) { peerHandlers.add(fn); },
     mode(u) { const p = peers.get(u); return p ? p.mode : 'closed'; },
-    /** ¿Va por el relé? Entonces se manda menos a menudo. */
+    /** ¿Va por el relé (o no hay conexión)? Entonces se manda menos a menudo. */
     slow(u) { const p = peers.get(u); return !p || p.mode !== 'direct'; },
     /** ¿Va directo pero a través del TURN de Cloudflare? (se manda algo menos) */
     viaTurn(u) { const p = peers.get(u); return !!p && p.mode === 'direct' && !!p.turn; },

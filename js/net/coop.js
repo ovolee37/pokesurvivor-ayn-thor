@@ -214,7 +214,7 @@ G.Coop = (() => {
   });
 
   G.Net.onPeer((u, mode) => {
-    if (!active || mode !== 'closed') return;
+    if (!active || (mode !== 'closed' && mode !== 'failed')) return;
     if (host) mateGone(u);
     else if (u === hostUid) { const cb = api.lost; end(); if (cb) cb('Se ha perdido la conexión con el anfitrión.'); }
   });

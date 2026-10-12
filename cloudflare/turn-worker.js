@@ -34,7 +34,16 @@
  * puede crear. Protegido con la clave MAU_SECRET (secreto del Worker y de la
  * función), así nadie más puede tocar el contador.
  */
-const PROJECT = 'pokesurvivor-jpter';
+// Proyectos de Firebase cuyas cuentas valen. El 12-10-2026 el juego se mudó a
+// pokesurvivor-free (sin Identity Platform: cuentas gratis); el viejo se acepta
+// unos días por las pestañas que sigan abiertas.
+const PROJECTS = ['pokesurvivor-free', 'pokesurvivor-jpter'];
+// Tope del TURN: 1.000 GB gratis al mes. Pasados TURN_CAP_GB este mes se dejan de
+// dar servidores TURN (sólo STUN): esas partidas usan el relé de Firebase. Así
+// Cloudflare nunca pasa de los 5 $ del plan. Necesita el secreto CF_ANALYTICS_TOKEN
+// (token de API con permiso "Account Analytics: Read") y la variable ACCOUNT_ID;
+// sin ellos no hay tope (como antes).
+const TURN_CAP_GB = 900;
 const ORIGINS = ['https://pokesurvivor.com', 'https://www.pokesurvivor.com', 'http://127.0.0.1:8765', 'http://localhost:8765'];
 const TTL = 4 * 3600;                         // segundos que valen las credenciales
 const JWKS = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -61,7 +70,7 @@ async function verify(token) {
   try { head = JSON.parse(new TextDecoder().decode(b64url(parts[0]))); body = JSON.parse(new TextDecoder().decode(b64url(parts[1]))); }
   catch (e) { return null; }
   const now = Math.floor(Date.now() / 1000);
-  if (head.alg !== 'RS256' || body.aud !== PROJECT || body.iss !== 'https://securetoken.google.com/' + PROJECT) return null;
+  if (head.alg !== 'RS256' || !PROJECTS.includes(body.aud) || body.iss !== 'https://securetoken.google.com/' + body.aud) return null;
   if (!body.sub || body.exp < now || body.iat > now + 300) return null;
   if (!keys || Date.now() - keysAt > 3600e3) {
     const r = await fetch(JWKS);
@@ -126,11 +135,49 @@ export default {
     });
     if (!r.ok) return new Response(JSON.stringify({ error: 'turn ' + r.status }), { status: 502, headers: { ...h, 'content-type': 'application/json' } });
     const data = await r.json();
-    return new Response(JSON.stringify({ iceServers: data.iceServers, ttl: TTL }), {
+    let ice = data.iceServers;
+    // Cupo del mes casi gastado: sólo STUN (sin TURN, que es lo que se paga).
+    if (await turnFull(env)) {
+      ice = [].concat(ice).map(s => Object.assign({}, s, { urls: [].concat(s.urls).filter(u => /^stuns?:/.test(u)) }))
+        .filter(s => s.urls.length);
+    }
+    return new Response(JSON.stringify({ iceServers: ice, ttl: TTL }), {
       headers: { ...h, 'content-type': 'application/json', 'cache-control': 'no-store' }
     });
   }
 };
+
+// ---------------- tope del TURN ----------------
+
+/**
+ * ¿Se ha gastado ya casi todo el TURN gratis del mes? Mira el gasto real en la
+ * API de analíticas de Cloudflare y lo guarda 30 min en la caché (no gasta
+ * peticiones del plan: es una subpetición). Si algo falla, no corta nada.
+ */
+async function turnFull(env) {
+  if (!env.CF_ANALYTICS_TOKEN || !env.ACCOUNT_ID) return false;
+  const month = new Date().toISOString().slice(0, 7);
+  const cacheKey = new Request('https://turn-budget.internal/' + month);
+  const cache = caches.default;
+  const hit = await cache.match(cacheKey);
+  if (hit) return (await hit.text()) === '1';
+  let full = false;
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const query = `{ viewer { accounts(filter: { accountTag: "${env.ACCOUNT_ID}" }) {
+      callsTurnUsageAdaptiveGroups(limit: 40, filter: { date_geq: "${month}-01", date_leq: "${today}" }) { sum { egressBytes } } } } }`;
+    const r = await fetch('https://api.cloudflare.com/client/v4/graphql', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + env.CF_ANALYTICS_TOKEN, 'content-type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+    const j = await r.json();
+    const rows = (j.data && j.data.viewer.accounts[0] && j.data.viewer.accounts[0].callsTurnUsageAdaptiveGroups) || [];
+    const gb = rows.reduce((a, x) => a + (x.sum.egressBytes || 0), 0) / 1e9;
+    full = gb >= TURN_CAP_GB;
+  } catch (e) { full = false; }
+  await cache.put(cacheKey, new Response(full ? '1' : '0', { headers: { 'cache-control': 'max-age=1800' } }));
+  return full;
+}
 
 // ---------------- contador de gente en línea ----------------
 
