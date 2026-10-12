@@ -1,5 +1,9 @@
 # PokéSurvivor · Mundo Misterioso
 
+> **Android app for the AYN Thor:** download the APK from the
+> [latest release](https://github.com/ovolee37/pokesurvivor-ayn-thor/releases/latest).
+> Build instructions: [Android build](#android-build).
+
 Bullet-heaven con Pokémon al estilo de Survivor.io y Megabonk, con sprites de
 *Pokémon Mundo Misterioso*, capa roguelike, **966 Pokémon de las 9 generaciones**,
 shinies y gacha por región. Música y efectos compuestos para el juego.
@@ -159,53 +163,54 @@ python tools/fetch_credits.py    # CREDITS.md
 - **Iconos.** Mapas de caracteres convertidos a canvas y data URLs; siempre a
   múltiplos enteros de su tamaño para que el píxel quede limpio.
 
-## Android-Build
+## Android build
 
-Die Android-App (getestet für den AYN Thor, Android 13) ist eine
-[Capacitor 7](https://capacitorjs.com/)-Hülle um genau dieselben Dateien wie die
-Web-Version. Am Spiel selbst ändert sich nichts.
+The Android app (built for the AYN Thor, Android 13) is a
+[Capacitor 7](https://capacitorjs.com/) wrapper around exactly the same files as
+the web version. The game itself is unchanged.
 
-**Voraussetzungen:** Node.js LTS, JDK 21, Android SDK (platform-tools,
-platforms;android-35, build-tools 34+), `ANDROID_HOME` gesetzt.
+**Requirements:** Node.js LTS, JDK 21, Android SDK (platform-tools,
+platforms;android-35, build-tools 34+), `ANDROID_HOME` set.
 
 ```powershell
-npm install                                                          # einmalig: Capacitor
-powershell -ExecutionPolicy Bypass -File scripts\build-www.ps1 -Bundle # js/app.min.js bauen, nach www\ kopieren, cap sync
-cd android; .\gradlew.bat assembleDebug                              # Debug-APK
+npm install                                                          # once: Capacitor
+powershell -ExecutionPolicy Bypass -File scripts\build-www.ps1 -Bundle # build js/app.min.js, copy to www\, cap sync
+cd android; .\gradlew.bat assembleDebug                              # debug APK
 adb install -r app\build\outputs\apk\debug\app-debug.apk
 ```
 
-- `scripts/build-www.ps1` kopiert das Spiel nach `www/` (ohne `.git`, `.github`,
+- `scripts/build-www.ps1` copies the game to `www/` (without `.git`, `.github`,
   `tools`, `docs`, `android`, `node_modules`, `scripts`, `functions`,
-  `cloudflare`, die Firebase-Projektdateien und `dev.html`) und führt
-  `npx cap sync android` aus. Mit `-Bundle` läuft vorher `node tools/build.js`,
-  mit `-NoSync` wird nur kopiert. `js/core/firebase-config.js` bleibt drin, das
-  Spiel braucht sie.
-- Kurzform: `npm run apk` (Debug) bzw. `npm run apk:release` (Release).
-- **Release-APK** (`de.aynthor.pokesurvivor`, nicht debuggable, mit eigenem
-  Schlüssel signiert): `cd android; .\gradlew.bat assembleRelease` →
-  `android\app\build\outputs\apk\release\app-release.apk`. Die Signatur
-  kommt aus `android/keystore.properties` und
-  `android/keystore/pokesurvivor-release.jks`. Beide Dateien werden **nicht**
-  committet (siehe `android/.gitignore`) und müssen sicher gesichert werden:
-  Ohne sie lassen sich keine Updates für die installierte App mehr bauen.
-- Die App ist als Spiel gekennzeichnet: `android:appCategory="game"`,
-  `android:isGame="true"` und `android.intent.category.APP_GAME` im
-  Launcher-Filter. Querformat (`sensorLandscape`), Vollbild, Bildschirm bleibt an.
-- Die Zurück-Taste und die B-Taste schließen die App nicht. In Menüs gehen sie
-  eine Ebene zurück, im Spiel pausieren sie (`MainActivity.java` → Ereignis
-  `ps-back` → `js/core/native.js`).
-- In der App wird kein Service Worker registriert.
-- „Mit Google anmelden“: Google sperrt die Anmeldung in WebViews. Darum öffnet
-  die App Chrome mit einer Login-Seite, die ein kleiner lokaler Server
-  ausliefert (`http://localhost:<Port>`, nur 127.0.0.1, mit Einmal-Code;
-  `GoogleLoginPlugin.java`, `res/raw/google_login.html`). Das Google-Token geht
-  zurück an die App, und das Spiel meldet sich damit per `signInWithCredential`
-  an (`js/core/native.js`, `js/core/db.js`). Voraussetzung: `localhost` steht im
-  Firebase-Projekt unter den autorisierten Domains (Standard).
-- Controller: siehe `js/core/gamepad.js` (Belegung in `CONFIG`). Select + Start
-  2 s halten öffnet das Debug-Overlay mit Buttons und Achsen.
-- Debuggen: Bei verbundenem Gerät `chrome://inspect` am PC (nur Debug-APK).
+  `cloudflare`, the Firebase project files and `dev.html`) and runs
+  `npx cap sync android`. `-Bundle` runs `node tools/build.js` first, `-NoSync`
+  only copies. `js/core/firebase-config.js` stays in, the game needs it.
+- Shortcuts: `npm run apk` (debug) or `npm run apk:release` (release).
+- **Release APK** (`de.aynthor.pokesurvivor`, not debuggable, signed with its
+  own key): `cd android; .\gradlew.bat assembleRelease` →
+  `android\app\build\outputs\apk\release\app-release.apk`. The signature comes
+  from `android/keystore.properties` and
+  `android/keystore/pokesurvivor-release.jks`. Neither file is committed (see
+  `android/.gitignore`); without them the release APK is unsigned. To sign your
+  own build, create a keystore and a `keystore.properties` with `storeFile`,
+  `storePassword`, `keyAlias` and `keyPassword`.
+- The app is flagged as a game: `android:appCategory="game"`,
+  `android:isGame="true"` and `android.intent.category.APP_GAME` in the
+  launcher filter. Landscape (`sensorLandscape`), fullscreen, screen stays on.
+- The Back and B buttons don't close the app. In menus they go back one level,
+  in game they pause (`MainActivity.java` → event `ps-back` →
+  `js/core/native.js`).
+- No service worker is registered inside the app.
+- "Sign in with Google": Google blocks sign-in inside WebViews, so the app opens
+  Chrome with a login page served by a small local server
+  (`http://localhost:<port>`, 127.0.0.1 only, with a one-time code;
+  `GoogleLoginPlugin.java`, `res/raw/google_login.html`). The Google token goes
+  back to the app and the game signs in with `signInWithCredential`
+  (`js/core/native.js`, `js/core/db.js`). Requires `localhost` among the
+  authorized domains of the Firebase project (the default).
+- Controllers: see `js/core/gamepad.js` (mapping in `CONFIG`). Holding
+  Select + Start for 2 s opens a debug overlay showing buttons and axes.
+- Debugging: with the device connected, open `chrome://inspect` on the PC
+  (debug APK only).
 
 ## Créditos y licencia
 
