@@ -10,9 +10,9 @@
  * - Manual aim (only with Settings > Controls > Aim: Manual): tilting the right
  *   stick (or holding the left mouse button on the game on PC) fires the
  *   attacks in that direction. player.js reads it through aimAngle() /
- *   targetInCone().
- * - Level-up screen: L1 / R1 reroll the cards (like the R key). Based on the fork by Iván Freire
+ *   targetInCone(). Based on the fork by Iván Freire
  *   (github.com/IvanFreireDacoba/pokesurvivor).
+ * - Level-up screen: L1 / R1 reroll the cards (like the R key).
  *
  * Buttons go by POSITION in the standard layout (0 = bottom, 1 = right,
  * 2 = left, 3 = top), not by the printed letter.

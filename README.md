@@ -214,7 +214,7 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 
 ### Changes for the Android app
 
-Everything added or changed for the APK is in a single commit:
+The first version of the APK is in a single commit:
 [`a1675dc`](https://github.com/ovolee37/pokesurvivor-ayn-thor/commit/a1675dc52b6051213668de845433c81a3c247112).
 It is based on [JPTER78/pokesurvivor](https://github.com/JPTER78/pokesurvivor)
 at commit `f552173`.
@@ -229,6 +229,18 @@ at commit `f552173`.
 - **Generated / boilerplate:** the Capacitor project in `android/` (Gradle
   files, icons, splash screens, example tests), `capacitor.config.json`,
   `package.json`, `package-lock.json`.
+
+Later changes (app v1.2):
+
+- **Upstream update:** merged [JPTER78/pokesurvivor](https://github.com/JPTER78/pokesurvivor)
+  up to commit `65b35ef`.
+- **Manual aiming with the right stick**, based on the fork by
+  [Iván Freire (IvanFreireDacoba)](https://github.com/IvanFreireDacoba/pokesurvivor)
+  (commit `2451db3`), ported to this controller code in
+  [`5b6679e`](https://github.com/ovolee37/pokesurvivor-ayn-thor/commit/5b6679e).
+  Choose it in Settings > Controls > Aiming (Automatic / Manual); in manual
+  mode, directed attacks only fire while you aim.
+- **L1 / R1** reroll the level-up cards.
 
 ## Créditos y licencia
 
