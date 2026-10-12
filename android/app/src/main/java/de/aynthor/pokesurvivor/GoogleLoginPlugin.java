@@ -26,23 +26,23 @@ import java.security.SecureRandom;
 import java.util.Locale;
 
 /**
- * Google-Anmeldung für die App.
+ * Google sign-in for the app.
  *
- * Google erlaubt die Anmeldung nicht in eingebetteten WebViews. Darum läuft sie
- * im echten Chrome: Die App startet einen kleinen HTTP-Server nur auf
- * 127.0.0.1 (zufälliger Port) und öffnet http://localhost:PORT/login in Chrome.
- * "localhost" ist in jedem Firebase-Projekt als Anmelde-Domain erlaubt. Die Seite
- * (res/raw/google_login.html) meldet sich per Firebase signInWithPopup an und
- * schickt das Google-Token (idToken + accessToken) mit einem Einmal-Code an
- * diesen Server zurück. Das Spiel meldet sich damit in der WebView per
- * signInWithCredential an (siehe js/core/native.js und js/core/db.js).
+ * Google doesn't allow sign-in inside embedded WebViews, so it runs in the real
+ * Chrome: the app starts a small HTTP server on 127.0.0.1 only (random port) and
+ * opens http://localhost:PORT/login in Chrome. "localhost" is an authorized
+ * sign-in domain in every Firebase project. The page (res/raw/google_login.html)
+ * signs in with Firebase signInWithPopup and sends the Google token
+ * (idToken + accessToken) back to this server together with a one-time code.
+ * The game then signs in inside the WebView with signInWithCredential
+ * (see js/core/native.js and js/core/db.js).
  *
  * JS: Capacitor.nativePromise('GoogleLogin', 'signIn', { config }) -> { idToken, accessToken }
  */
 @CapacitorPlugin(name = "GoogleLogin")
 public class GoogleLoginPlugin extends Plugin {
     private static final String TAG = "GoogleLogin";
-    private static final long TIMEOUT_MS = 10 * 60 * 1000;   // nach 10 Minuten aufgeben
+    private static final long TIMEOUT_MS = 10 * 60 * 1000;   // give up after 10 minutes
 
     private PluginCall pending;
     private ServerSocket server;
@@ -53,11 +53,11 @@ public class GoogleLoginPlugin extends Plugin {
     public void signIn(PluginCall call) {
         JSObject cfg = call.getObject("config");
         if (cfg == null || !cfg.has("apiKey") || !cfg.has("authDomain")) {
-            call.reject("Falta la configuración de Firebase", "config");
+            call.reject("Firebase config is missing", "config");
             return;
         }
-        // Ein früherer, nicht beendeter Versuch wird abgebrochen.
-        finish(null, "Cancelado", "auth/popup-closed-by-user");
+        // Cancel an earlier attempt that never finished.
+        finish(null, "Cancelled", "auth/popup-closed-by-user");
         try {
             nonce = randomHex(16);
             page = loadPage()
@@ -66,7 +66,7 @@ public class GoogleLoginPlugin extends Plugin {
                 .replace("__RETURN__", "intent://login#Intent;scheme=pokesurvivor;package=" + getContext().getPackageName() + ";end");
             server = new ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"));
         } catch (IOException e) {
-            call.reject("No se pudo preparar el inicio de sesión: " + e.getMessage(), "auth/internal-error");
+            call.reject("Could not prepare sign-in: " + e.getMessage(), "auth/internal-error");
             return;
         }
         pending = call;
@@ -77,7 +77,7 @@ public class GoogleLoginPlugin extends Plugin {
         t.start();
         new Thread(() -> {
             try { Thread.sleep(TIMEOUT_MS); } catch (InterruptedException ignored) { return; }
-            if (server == s) finish(null, "Tiempo agotado", "auth/timeout");
+            if (server == s) finish(null, "Timed out", "auth/timeout");
         }, "google-login-timeout").start();
 
         Uri uri = Uri.parse("http://localhost:" + port + "/login?n=" + nonce);
@@ -88,24 +88,24 @@ public class GoogleLoginPlugin extends Plugin {
         } catch (ActivityNotFoundException e) {
             i.setPackage(null);
             try { getActivity().startActivity(i); }
-            catch (ActivityNotFoundException e2) { finish(null, "No hay ningún navegador instalado", "auth/operation-not-supported-in-this-environment"); }
+            catch (ActivityNotFoundException e2) { finish(null, "No browser installed", "auth/operation-not-supported-in-this-environment"); }
         }
     }
 
     @PluginMethod
     public void cancel(PluginCall call) {
-        finish(null, "Cancelado", "auth/popup-closed-by-user");
+        finish(null, "Cancelled", "auth/popup-closed-by-user");
         call.resolve();
     }
 
     @Override
     protected void handleOnDestroy() {
-        finish(null, "Cancelado", "auth/popup-closed-by-user");
+        finish(null, "Cancelled", "auth/popup-closed-by-user");
     }
 
-    // ---------------- Ergebnis ----------------
+    // ---------------- Result ----------------
 
-    /** Beendet den laufenden Versuch: mit Token (ok != null) oder mit Fehler. */
+    /** Ends the current attempt: with a token (ok != null) or with an error. */
     private synchronized void finish(JSObject ok, String error, String code) {
         if (server != null) {
             try { server.close(); } catch (IOException ignored) { }
@@ -118,7 +118,7 @@ public class GoogleLoginPlugin extends Plugin {
         else c.reject(error, code);
     }
 
-    // ---------------- Mini-HTTP-Server ----------------
+    // ---------------- Mini HTTP server ----------------
 
     private void serve(ServerSocket s) {
         while (!s.isClosed()) {
@@ -126,7 +126,7 @@ public class GoogleLoginPlugin extends Plugin {
                 sock.setSoTimeout(15000);
                 handle(sock);
             } catch (IOException e) {
-                if (!s.isClosed()) Log.w(TAG, "Verbindung: " + e.getMessage());
+                if (!s.isClosed()) Log.w(TAG, "Connection: " + e.getMessage());
             }
         }
     }
@@ -184,7 +184,7 @@ public class GoogleLoginPlugin extends Plugin {
         int c, state = 0;
         while ((c = in.read()) >= 0) {
             b.write(c);
-            // Ende der Kopfzeilen: \r\n\r\n
+            // End of headers: \r\n\r\n
             state = (c == '\r' && (state == 0 || state == 2)) ? state + 1 : (c == '\n' && (state == 1 || state == 3)) ? state + 1 : 0;
             if (state == 4) return b.toString("ISO-8859-1");
             if (b.size() > 16 * 1024) return null;
@@ -206,7 +206,7 @@ public class GoogleLoginPlugin extends Plugin {
         out.flush();
     }
 
-    // ---------------- Hilfen ----------------
+    // ---------------- Helpers ----------------
 
     private String loadPage() throws IOException {
         try (InputStream in = getContext().getResources().openRawResource(R.raw.google_login)) {

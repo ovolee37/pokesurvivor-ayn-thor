@@ -1,6 +1,6 @@
 apply plugin: 'com.android.application'
 
-// Release-Signatur: android/keystore.properties (nicht im Repository, siehe .gitignore).
+// Release signing: android/keystore.properties (not in the repository, see .gitignore).
 def keystorePropsFile = rootProject.file('keystore.properties')
 def keystoreProps = new Properties()
 if (keystorePropsFile.exists()) keystorePropsFile.withInputStream { keystoreProps.load(it) }
@@ -33,7 +33,7 @@ android {
     }
     buildTypes {
         release {
-            // Ohne keystore.properties entsteht eine unsignierte APK (nicht installierbar).
+            // Without keystore.properties the APK is unsigned (cannot be installed).
             if (keystorePropsFile.exists()) signingConfig signingConfigs.release
             debuggable false
             minifyEnabled false

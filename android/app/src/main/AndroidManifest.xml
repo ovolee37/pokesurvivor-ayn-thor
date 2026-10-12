@@ -14,10 +14,10 @@
         tools:ignore="UnusedAttribute,Deprecated"
         tools:targetApi="26">
 
-        <!-- Als Spiel kennzeichnen (System, Launcher, AYN Game Assistant):
-             appCategory="game" (offiziell ab Android 8), isGame="true" (veraltet,
-             wird aber von manchen Launchern/Herstellertools noch gelesen) und
-             die Kategorie APP_GAME im Launcher-intent-filter unten. -->
+        <!-- Flag the app as a game (system, launcher, AYN Game Assistant):
+             appCategory="game" (official since Android 8), isGame="true" (deprecated,
+             but still read by some launchers/vendor tools) and the APP_GAME
+             category in the launcher intent-filter below. -->
 
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
@@ -35,7 +35,7 @@
                 <category android:name="android.intent.category.APP_GAME" />
             </intent-filter>
 
-            <!-- Rücksprung aus Chrome nach der Google-Anmeldung (GoogleLoginPlugin) -->
+            <!-- Return from Chrome after Google sign-in (GoogleLoginPlugin) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

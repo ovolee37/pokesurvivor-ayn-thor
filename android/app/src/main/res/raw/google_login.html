@@ -1,7 +1,7 @@
 <!doctype html>
-<!-- Google-Anmeldung für die PokéSurvivor-App. Wird von GoogleLoginPlugin.java
-     über http://localhost:PORT/login in Chrome ausgeliefert (__CONFIG__,
-     __NONCE__ und __RETURN__ setzt das Plugin ein). -->
+<!-- Google sign-in for the PokéSurvivor app. Served to Chrome by
+     GoogleLoginPlugin.java at http://localhost:PORT/login (the plugin fills in
+     __CONFIG__, __NONCE__ and __RETURN__). -->
 <html>
 <head>
 <meta charset="utf-8">
@@ -62,7 +62,7 @@
   if (!window.firebase) { msg.textContent = T.noSdk; msg.className = 'err'; go.hidden = true; return; }
   firebase.initializeApp(CFG);
   var auth = firebase.auth();
-  // In Chrome nichts behalten: angemeldet wird das Spiel, nicht der Browser.
+  // Keep nothing in Chrome: the game gets signed in, not the browser.
   auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
 
   go.onclick = function () {
@@ -71,19 +71,19 @@
     provider.setCustomParameters({ prompt: 'select_account' });
     auth.signInWithPopup(provider).then(function (res) {
       var c = res.credential || {};
-      if (!c.idToken && !c.accessToken) throw { code: 'auth/missing-credential', message: 'Google lieferte kein Token' };
+      if (!c.idToken && !c.accessToken) throw { code: 'auth/missing-credential', message: 'Google returned no token' };
       return post({ idToken: c.idToken || null, accessToken: c.accessToken || null }).then(function () {
         auth.signOut();
         msg.textContent = T.ok; go.hidden = true; back.hidden = false;
-        // Zurück in die App (klappt nicht immer ohne Tippen: dafür der Button).
-        try { location.href = RETURN; } catch (e) { /* Button bleibt */ }
+        // Back to the app (doesn't always work without a tap: that's what the button is for).
+        try { location.href = RETURN; } catch (e) { /* button stays */ }
       });
     }).catch(function (e) {
       var code = (e && e.code) || 'auth/internal-error';
       msg.textContent = T.fail + code; msg.className = 'err';
       go.disabled = false; go.textContent = T.retry;
-      // Fehler werden nicht an die App gemeldet: so bleibt "Nochmal versuchen"
-      // möglich. Kommt man ohne Anmeldung ins Spiel zurück, bricht das Spiel ab.
+      // Errors are not reported to the app, so "Try again" stays possible.
+      // Returning to the game without signing in makes the game cancel.
     });
   };
 })();

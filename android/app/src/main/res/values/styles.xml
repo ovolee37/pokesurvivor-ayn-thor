@@ -13,7 +13,7 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
-        <!-- Dunkel statt weiß, solange die WebView lädt -->
+        <!-- Dark instead of white while the WebView loads -->
         <item name="android:windowBackground">@android:color/black</item>
     </style>
 

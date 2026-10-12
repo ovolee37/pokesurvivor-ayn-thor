@@ -1,11 +1,11 @@
-/* ============ native.js — cuando el juego va dentro de la app Android (Capacitor) ============
- * - G.Native.isApp: true dentro de la app (window.Capacitor lo pone la app antes
- *   que cualquier script).
- * - Entrar con Google: Google no deja hacerlo dentro de la app (WebView), así que
- *   se hace en Chrome (GoogleLoginPlugin.java) y aquí llega el token de Google
- *   para entrar con signInWithCredential (ver db.js).
- * - La tecla Atrás de Android y el botón B del mando no cierran la app: MainActivity
- *   las convierte en el evento 'ps-back' y aquí se tratan como "volver" del juego.
+/* ============ native.js — when the game runs inside the Android app (Capacitor) ============
+ * - G.Native.isApp: true inside the app (the app sets window.Capacitor before
+ *   any script runs).
+ * - Google sign-in: Google doesn't allow it inside the app (WebView), so it
+ *   happens in Chrome (GoogleLoginPlugin.java) and the Google token arrives here
+ *   to sign in with signInWithCredential (see db.js).
+ * - The Android Back key and the controller's B button don't close the app:
+ *   MainActivity turns them into the 'ps-back' event, handled here as the game's "back".
  */
 G.Native = (() => {
   const cap = window.Capacitor;
@@ -19,8 +19,8 @@ G.Native = (() => {
   addEventListener('ps-back', () => { if (G.Gamepad) G.Gamepad.back(); });
 
   /**
-   * Abre Chrome para entrar con Google y devuelve { idToken, accessToken }.
-   * Si vuelves al juego sin haber entrado, se cancela solo a los pocos segundos.
+   * Opens Chrome to sign in with Google and returns { idToken, accessToken }.
+   * If you return to the game without signing in, it cancels itself after a few seconds.
    */
   function googleSignIn(config) {
     if (!isApp || !cap.nativePromise) return Promise.reject({ code: 'auth/operation-not-supported-in-this-environment' });

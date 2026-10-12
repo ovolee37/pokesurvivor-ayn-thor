@@ -16,22 +16,22 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 
 /**
- * PokéSurvivor als Android-App (AYN Thor & Co.).
+ * PokéSurvivor as an Android app (AYN Thor and similar devices).
  *
- * - Vollbild (Immersive), Bildschirm bleibt an, Musik ohne vorheriges Tippen.
- * - Google-Anmeldung über Chrome statt in der WebView: GoogleLoginPlugin.
- * - Zurück-Taste / Zurück-Geste schließen die App NICHT: sie gehen als Ereignis
- *   'ps-back' ans Spiel (js/core/native.js -> G.Gamepad.back()).
- * - Controller-Tasten (KEYCODE_BUTTON_*, D-Pad) und Sticks gehen direkt an die
- *   WebView (dort landen sie in der Gamepad-API) und werden danach als
- *   verbraucht gemeldet: so macht Android weder Fokus-Navigation daraus noch
- *   aus der B-Taste ein "Zurück", das die App beenden würde.
+ * - Fullscreen (immersive), screen stays on, music plays without a tap first.
+ * - Google sign-in runs in Chrome instead of the WebView: GoogleLoginPlugin.
+ * - The Back key / back gesture do NOT close the app: they are sent to the game
+ *   as the 'ps-back' event (js/core/native.js -> G.Gamepad.back()).
+ * - Controller buttons (KEYCODE_BUTTON_*, D-pad) and sticks go straight to the
+ *   WebView (where they reach the Gamepad API) and are then reported as
+ *   consumed: this way Android neither turns them into focus navigation nor
+ *   turns the B button into a "Back" that would close the app.
  */
 public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        registerPlugin(GoogleLoginPlugin.class);   // Google-Anmeldung über Chrome (siehe dort)
+        registerPlugin(GoogleLoginPlugin.class);   // Google sign-in via Chrome (see there)
         super.onCreate(savedInstanceState);
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -50,7 +50,7 @@ public class MainActivity extends BridgeActivity {
             wv.requestFocus();
         }
 
-        // Falls "Zurück" doch über den Dispatcher kommt (z. B. Geste): auch nur ans Spiel.
+        // In case "Back" still comes through the dispatcher (e.g. gesture): only to the game as well.
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -82,7 +82,7 @@ public class MainActivity extends BridgeActivity {
         c.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
     }
 
-    /** "Zurück" ans Spiel melden (pausiert im Spiel, geht in Menüs eine Ebene zurück). */
+    /** Sends "Back" to the game (pauses in game, goes back one level in menus). */
     private void sendBack() {
         WebView wv = webView();
         if (wv == null) return;
@@ -105,13 +105,13 @@ public class MainActivity extends BridgeActivity {
     public boolean dispatchKeyEvent(KeyEvent e) {
         int code = e.getKeyCode();
 
-        // Zurück (auch wenn ein Controller B als BACK meldet): nie die App schließen.
+        // Back (also when a controller reports B as BACK): never close the app.
         if (code == KeyEvent.KEYCODE_BACK) {
             if (e.getAction() == KeyEvent.ACTION_UP && !e.isCanceled()) sendBack();
             return true;
         }
 
-        // Controller-Tasten direkt an die WebView (Gamepad-API) und als verbraucht melden.
+        // Controller buttons go straight to the WebView (Gamepad API) and are reported as consumed.
         if (KeyEvent.isGamepadButton(code) || (isDpad(code) && fromGamepad(e.getDevice(), e.getSource()))) {
             WebView wv = webView();
             if (wv != null) wv.dispatchKeyEvent(e);
@@ -122,7 +122,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public boolean dispatchGenericMotionEvent(MotionEvent e) {
-        // Sticks, Trigger und Hat-D-Pad: direkt an die WebView.
+        // Sticks, triggers and hat D-pad: straight to the WebView.
         if (fromGamepad(e.getDevice(), e.getSource()) && e.getAction() == MotionEvent.ACTION_MOVE) {
             WebView wv = webView();
             if (wv != null && wv.dispatchGenericMotionEvent(e)) return true;

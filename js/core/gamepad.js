@@ -1,52 +1,52 @@
-/* ============ gamepad.js — mando (Gamepad API) ============
- * - En partida: el stick izquierdo mueve en analógico (G.Input.axis() lo lee
- *   con vector(), no se simulan teclas) y los botones llaman directamente a
- *   las acciones del juego (ataque 1–4, ciclar, pausa, ajustes).
- * - En menús y pantallas por encima (login, menú, cartas de nivel, gacha,
- *   pausa, ajustes...): stick/cruceta mueven un marco de foco entre lo que se
- *   puede pulsar, A pulsa, B vuelve, L1/R1 cambian de pestaña.
- * - Se cambia solo entre una y otra según el estado del juego.
- * - Select + Start 2 s: panel de depuración (id, mapping, botones, ejes).
+/* ============ gamepad.js — controller (Gamepad API) ============
+ * - In game: the left stick moves in analog (G.Input.axis() reads it through
+ *   vector(), no keys are simulated) and the buttons call the game actions
+ *   directly (move 1–4, cycle, pause, settings).
+ * - In menus and overlay screens (login, menu, level-up cards, gacha, pause,
+ *   settings...): stick/D-pad move a focus frame between the things you can
+ *   press, A presses, B goes back, L1/R1 switch tabs.
+ * - It switches between the two on its own, based on the game state.
+ * - Select + Start for 2 s: debug panel (id, mapping, buttons, axes).
  *
- * Los botones van por POSICIÓN de la disposición estándar (0 = abajo,
- * 1 = derecha, 2 = izquierda, 3 = arriba), no por la letra impresa.
- * Toda la asignación está en CONFIG (también accesible como G.Gamepad.config).
+ * Buttons go by POSITION in the standard layout (0 = bottom, 1 = right,
+ * 2 = left, 3 = top), not by the printed letter.
+ * The whole mapping is in CONFIG (also available as G.Gamepad.config).
  */
 G.Gamepad = (() => {
   const CONFIG = {
-    deadzone: 0.2,            // zona muerta radial del stick (en partida)
-    menuThreshold: 0.5,       // cuánto hay que inclinar el stick para mover el foco
-    repeatDelay: 0.35,        // s hasta que se repite una dirección mantenida (menús)
-    repeatRate: 0.11,         // s entre repeticiones
-    layerGrace: 0.25,         // s sin aceptar A/B al abrirse una pantalla nueva
-    axes: { x: 0, y: 1 },     // stick izquierdo
+    deadzone: 0.2,            // radial stick dead zone (in game)
+    menuThreshold: 0.5,       // how far the stick must be tilted to move the focus
+    repeatDelay: 0.35,        // s until a held direction repeats (menus)
+    repeatRate: 0.11,         // s between repeats
+    layerGrace: 0.25,         // s during which A/B are ignored after a new screen opens
+    axes: { x: 0, y: 1 },     // left stick
     dpad: { up: 12, down: 13, left: 14, right: 15 },
-    // Partida: índice de botón -> acción
+    // In game: button index -> action
     game: { 0: 'move1', 1: 'move2', 2: 'move3', 3: 'move4', 4: 'prev', 5: 'next', 9: 'pause', 8: 'settings' },
-    // Menús: índice de botón -> acción (la cruceta mueve el foco)
+    // Menus: button index -> action (the D-pad moves the focus)
     menu: { 0: 'confirm', 1: 'back', 4: 'tabPrev', 5: 'tabNext', 9: 'pause', 8: 'settings' },
-    // Start/Select actúan al SOLTARLOS (para que Select+Start no dispare nada).
+    // Start/Select act on RELEASE (so that Select+Start doesn't trigger anything).
     onRelease: [8, 9],
     debugCombo: [8, 9], debugHold: 2,
-    // Mandos sin mapping "standard": qué botón crudo hace de cada botón estándar
-    // y de dónde sale la cruceta (ejes o "hat"). Ajustable con el panel de depuración.
+    // Controllers without the "standard" mapping: which raw button acts as each
+    // standard button and where the D-pad comes from (axes or "hat"). Tune it with the debug panel.
     fallback: {
       buttons: { 0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9, 10: 10, 11: 11, 12: 12, 13: 13, 14: 14, 15: 15 },
-      dpadAxes: [6, 7],       // ejes X/Y de la cruceta, si los hay
-      hatAxis: 9              // eje "hat" (un solo eje con 8 posiciones), si lo hay
+      dpadAxes: [6, 7],       // D-pad X/Y axes, if any
+      hatAxis: 9              // "hat" axis (a single axis with 8 positions), if any
     },
-    // Al abrirse una pantalla, el foco empieza en lo primero que exista de aquí.
+    // When a screen opens, the focus starts on the first of these that exists.
     defaultFocus: ['#btn-resume', '#pull-close', '.menu-item.play', '#btn-guest', '#btn-again', '.card', '.answer', '.btn.gold'],
-    // Botones que cuentan como "atrás" dentro de la pantalla de arriba.
+    // Buttons that count as "back" inside the top screen.
     backButtons: '[data-back], #set-close, #legal-close, #sup-close, #bond-back, [data-a="no"]',
     focusable: 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"]), .menu-item, .tab, .chip, .card, .cell:not(.locked), .answer, .gen-tab, #slot'
   };
 
-  const N = 17;                          // botones estándar (0..16)
+  const N = 17;                          // standard buttons (0..16)
   let cur = new Array(N).fill(false), prev = new Array(N).fill(false);
   let stick = [0, 0], dpadVec = [0, 0];
-  let pads = [];                         // mandos conectados (para el panel)
-  let used = false;                      // ¿se ha usado el mando desde el último ratón/táctil/teclado?
+  let pads = [];                         // connected controllers (for the panel)
+  let used = false;                      // has the controller been used since the last mouse/touch/keyboard input?
   let unlocked = false;
   let comboT = 0, comboFired = false, comboTouched = false;
   let dbg = null;
@@ -54,17 +54,17 @@ G.Gamepad = (() => {
   let navDir = null, navT = 0;
   let lastTs = 0;
 
-  // ---------------- lectura ----------------
+  // ---------------- reading ----------------
 
   function hatToVec(v) {
-    // Hat típico: -1 arriba, -0,71 arriba-dcha, ..., 1 arriba-izda; fuera de rango = suelto.
+    // Typical hat: -1 up, -0.71 up-right, ..., 1 up-left; out of range = released.
     if (v == null || v > 1.05 || v < -1.05) return [0, 0];
     const i = Math.round((v + 1) / (2 / 7));          // 0..7
     const DIR = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
     return DIR[i] || [0, 0];
   }
 
-  /** Lee un mando y lo pasa a la disposición estándar. */
+  /** Reads one controller and maps it to the standard layout. */
   function readPad(p) {
     const b = new Array(N).fill(false);
     const raw = i => { const x = p.buttons[i]; return !!x && (x.pressed || x.value > 0.5); };
@@ -74,7 +74,7 @@ G.Gamepad = (() => {
     } else {
       const fb = CONFIG.fallback;
       for (const k in fb.buttons) b[k] = raw(fb.buttons[k]);
-      // Cruceta como ejes o como hat, si no viene en botones.
+      // D-pad as axes or as a hat, if it doesn't come as buttons.
       let dx = 0, dy = 0;
       const [ax, ay] = fb.dpadAxes || [];
       if (ax != null && p.axes.length > Math.max(ax, ay)) { dx = Math.round(p.axes[ax] || 0); dy = Math.round(p.axes[ay] || 0); }
@@ -96,11 +96,11 @@ G.Gamepad = (() => {
       pads.push(p);
       const r = readPad(p);
       for (let i = 0; i < N; i++) b[i] = b[i] || r.b[i];
-      // Con varios mandos manda el stick más inclinado.
+      // With several controllers, the most tilted stick wins.
       if (Math.hypot(r.sx, r.sy) > Math.hypot(sx, sy)) { sx = r.sx; sy = r.sy; }
     }
     prev = cur; cur = b;
-    // Stick: zona muerta radial y la fuerza se reescala desde el borde de la zona.
+    // Stick: radial dead zone, strength rescaled from the edge of the zone.
     const m = Math.hypot(sx, sy), dz = CONFIG.deadzone;
     if (m < dz) stick = [0, 0];
     else { const k = Math.min(1, (m - dz) / (1 - dz)); stick = [sx / m * k, sy / m * k]; }
@@ -113,21 +113,21 @@ G.Gamepad = (() => {
   const pressed = i => cur[i] && !prev[i];
   const released = i => !cur[i] && prev[i];
 
-  /** Vector de movimiento: la cruceta (8 direcciones) tiene prioridad; nunca se suman. */
+  /** Movement vector: the D-pad (8 directions) has priority; the two are never added. */
   function vector() {
     if (!pads.length) return null;
     if (dpadVec[0] || dpadVec[1]) return dpadVec;
     return stick;
   }
 
-  // ---------------- modo mando / táctil ----------------
+  // ---------------- controller / touch mode ----------------
 
   function markUsed() {
     if (!unlocked) firstInput();
     if (used) return;
     used = true;
     document.body.classList.add('gamepad');
-    // Con el mando no hace falta el joystick táctil (vuelve al tocar la pantalla).
+    // With a controller the touch joystick isn't needed (it comes back when the screen is touched).
     if (G.Touch && G.Touch.setActive) G.Touch.setActive(false);
   }
   function markUnused() {
@@ -139,13 +139,13 @@ G.Gamepad = (() => {
   addEventListener('pointerdown', () => markUnused(), true);
   addEventListener('keydown', e => { if (e.isTrusted) markUnused(); }, true);
 
-  /** La primera pulsación cuenta como un clic: arranca el sonido y quita "Pulsa para empezar". */
+  /** The first press counts as a click: starts the audio and removes "Tap to start". */
   function firstInput() {
     unlocked = true;
     if (G.Audio) G.Audio.unlock();
   }
 
-  // ---------------- capas (qué pantalla está arriba) ----------------
+  // ---------------- layers (which screen is on top) ----------------
 
   function visible(el) {
     if (!el || !el.isConnected || el.classList.contains('hidden')) return false;
@@ -156,24 +156,24 @@ G.Gamepad = (() => {
     return cs.visibility !== 'hidden' && cs.display !== 'none';
   }
 
-  /** La capa visible que está por encima de todas (o null si sólo se ve el juego). */
+  /** The visible layer on top of all others (or null if only the game is shown). */
   function topLayer() {
     const cand = document.querySelectorAll('section.scr, #pull-fx, #tap-start, #sound-panel');
     let best = null, bz = -1;
     cand.forEach(el => {
       if (!visible(el)) return;
       const z = parseInt(getComputedStyle(el).zIndex, 10) || 0;
-      if (z >= bz) { best = el; bz = z; }   // a igual z gana el que va después en el DOM
+      if (z >= bz) { best = el; bz = z; }   // with equal z, the later one in the DOM wins
     });
     return best;
   }
 
-  /** ¿Controles de partida? Sólo jugando y sin nada encima. */
+  /** In-game controls? Only while playing with nothing on top. */
   function gameMode(layer) {
     return !!(G.Game && G.Game.state === 'playing' && !layer && !(G.SettingsUI && G.SettingsUI.isOpen));
   }
 
-  // ---------------- foco ----------------
+  // ---------------- focus ----------------
 
   function keyOf(el) {
     const ds = el.dataset || {};
@@ -182,7 +182,7 @@ G.Gamepad = (() => {
 
   function focusables(layer) {
     const roots = [layer];
-    // En el menú principal también vale la barra de arriba (ajustes, sonido, salir).
+    // In the main menu the top bar counts too (settings, sound, log out).
     const tb = document.getElementById('topbar');
     if (tb && visible(tb) && (parseInt(getComputedStyle(layer).zIndex, 10) || 0) < 30) roots.push(tb);
     const out = [];
@@ -190,7 +190,7 @@ G.Gamepad = (() => {
       r.querySelectorAll(CONFIG.focusable).forEach(el => {
         if (el.disabled || !visible(el)) return;
         if (el.closest('.cell.locked')) return;
-        // Un elemento pulsable dentro de otro (p. ej. un botón dentro de una carta): vale el de fuera.
+        // A pressable element inside another (e.g. a button inside a card): the outer one counts.
         const outer = el.parentElement && el.parentElement.closest(CONFIG.focusable);
         if (outer && r.contains(outer) && out.includes(outer)) return;
         const rc = el.getBoundingClientRect();
@@ -211,13 +211,13 @@ G.Gamepad = (() => {
     focusKey = el ? keyOf(el) : null;
     if (!el) return;
     el.classList.add('gp-focus');
-    try { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* nada */ }
+    try { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* nothing */ }
     if (!silent && G.Audio) G.Audio.sfx('hover');
   }
   function clearFocus() { if (focusEl) focusEl.classList.remove('gp-focus'); focusEl = null; }
 
   function defaultFocus(list) {
-    // Primero lo de la propia pantalla (la barra de arriba sólo si no hay nada más).
+    // The screen's own elements first (the top bar only if there's nothing else).
     const own = layerEl ? list.filter(e => layerEl.contains(e)) : list;
     for (const sel of CONFIG.defaultFocus) {
       const el = own.find(e => e.matches(sel));
@@ -226,18 +226,18 @@ G.Gamepad = (() => {
     return own[0] || list[0] || null;
   }
 
-  /** Mantiene el foco válido (si la pantalla se redibuja, busca el mismo elemento). */
+  /** Keeps the focus valid (if the screen is redrawn, it looks for the same element). */
   function ensureFocus(layer) {
     const list = focusables(layer);
     if (focusEl && list.includes(focusEl)) return list;
     const again = focusKey && list.find(e => keyOf(e) === focusKey);
     if (focusEl) focusEl.classList.remove('gp-focus');
     focusEl = null;
-    setFocus(again || defaultFocus(list), true);     // sin sonido al recolocarlo solo
+    setFocus(again || defaultFocus(list), true);     // no sound when it repositions itself
     return list;
   }
 
-  /** Navegación espacial: el elemento más cercano en esa dirección. */
+  /** Spatial navigation: the closest element in that direction. */
   function move(dx, dy, list) {
     if (!focusEl) { setFocus(defaultFocus(list)); return; }
     const a = focusEl.getBoundingClientRect();
@@ -248,9 +248,9 @@ G.Gamepad = (() => {
       const r = el.getBoundingClientRect();
       const bx = r.left + r.width / 2, by = r.top + r.height / 2;
       const vx = bx - ax, vy = by - ay;
-      const along = vx * dx + vy * dy;               // avance en la dirección pedida
+      const along = vx * dx + vy * dy;               // progress in the requested direction
       if (along <= 2) continue;
-      // Distancia lateral contando desde el borde (filas y columnas desiguales).
+      // Sideways distance measured from the edge (uneven rows and columns).
       const side = dx ? Math.max(0, Math.abs(vy) - (a.height + r.height) / 2) : Math.max(0, Math.abs(vx) - (a.width + r.width) / 2);
       const s = along + side * 3;
       if (s < bs) { bs = s; best = el; }
@@ -258,10 +258,10 @@ G.Gamepad = (() => {
     if (best) setFocus(best);
   }
 
-  // ---------------- acciones ----------------
+  // ---------------- actions ----------------
 
   function key(code, k) {
-    // Para "atrás" se reutiliza lo que ya hace Esc en cada pantalla.
+    // For "back", reuse whatever Esc already does on each screen.
     dispatchEvent(new KeyboardEvent('keydown', { code, key: k, bubbles: true }));
     dispatchEvent(new KeyboardEvent('keyup', { code, key: k, bubbles: true }));
   }
@@ -269,7 +269,7 @@ G.Gamepad = (() => {
   function doConfirm(layer, list) {
     if (!focusEl) { setFocus(defaultFocus(list)); return; }
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(focusEl.tagName) && focusEl.type !== 'range' && focusEl.type !== 'checkbox') {
-      focusEl.focus();                               // escribir (en móvil sale el teclado)
+      focusEl.focus();                               // type (on mobile the keyboard comes up)
       return;
     }
     focusEl.click();
@@ -293,7 +293,7 @@ G.Gamepad = (() => {
       if (i < 0) i = 0;
       const t = tabs[(i + dir + tabs.length) % tabs.length];
       t.click();
-      try { t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* nada */ }
+      try { t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* nothing */ }
       return;
     }
   }
@@ -310,7 +310,7 @@ G.Gamepad = (() => {
   function openSettings() {
     if (!G.SettingsUI) return;
     if (G.SettingsUI.isOpen) { G.SettingsUI.close(); return; }
-    // En partida los ajustes se abren desde la pausa (si no, el juego seguiría).
+    // In game, settings open from the pause screen (otherwise the game would keep running).
     if (G.Game && G.Game.state === 'playing' && !G.Coop.active) G.Game.togglePause();
     G.SettingsUI.open();
   }
@@ -343,7 +343,7 @@ G.Gamepad = (() => {
     else if (act === 'settings') openSettings();
   }
 
-  /** Dirección para mover el foco (cruceta o stick), con repetición al mantener. */
+  /** Direction to move the focus (D-pad or stick), repeating while held. */
   function navStep(dt) {
     let dx = dpadVec[0] ? Math.sign(dpadVec[0]) : 0, dy = dpadVec[1] ? Math.sign(dpadVec[1]) : 0;
     if (!dx && !dy) {
@@ -352,7 +352,7 @@ G.Gamepad = (() => {
         if (Math.abs(ax) > Math.abs(ay)) dx = Math.sign(ax); else dy = Math.sign(ay);
       }
     }
-    if (dx && dy) dy = 0;                              // en menús, sólo 4 direcciones
+    if (dx && dy) dy = 0;                              // in menus, only 4 directions
     const dir = dx || dy ? dx + ',' + dy : null;
     if (!dir) { navDir = null; return null; }
     if (dir !== navDir) { navDir = dir; navT = CONFIG.repeatDelay; return [dx, dy]; }
@@ -361,7 +361,7 @@ G.Gamepad = (() => {
     return null;
   }
 
-  // ---------------- bucle ----------------
+  // ---------------- loop ----------------
 
   function tick(ts) {
     requestAnimationFrame(tick);
@@ -379,10 +379,10 @@ G.Gamepad = (() => {
     const any = cur.some((v, i) => v && !prev[i]);
     if (any || (stick[0] || stick[1]) && !used) markUsed();
     if (!used && !active) { if (dbg) drawDebug(layer, false); return; }
-    // "Pulsa para empezar": vale cualquier botón.
+    // "Tap to start": any button works.
     if (layer && layer.id === 'tap-start') { if (any) layer.click(); return; }
 
-    // Select + Start mantenidos: panel de depuración.
+    // Select + Start held: debug panel.
     const [c1, c2] = CONFIG.debugCombo;
     if (cur[c1] && cur[c2]) {
       comboTouched = true;
@@ -405,46 +405,46 @@ G.Gamepad = (() => {
     for (const k in map) {
       const i = +k;
       if (CONFIG.onRelease.includes(i)) {
-        // Al soltar, y sólo si no se ha usado como combinación Select+Start.
+        // On release, and only if it wasn't used as part of the Select+Start combo.
         if (released(i) && !comboTouched) fire(map[k]);
       } else if (pressed(i)) fire(map[k]);
     }
     if (dbg) drawDebug(layer, game);
   }
 
-  // ---------------- panel de depuración ----------------
+  // ---------------- debug panel ----------------
 
   function toggleDebug() {
     if (dbg) { dbg.remove(); dbg = null; return; }
     dbg = document.createElement('pre');
     dbg.id = 'gp-debug';
-    dbg.setAttribute('translate', 'no');             // que i18n no lo traduzca
+    dbg.setAttribute('translate', 'no');             // keep i18n from translating it
     document.body.appendChild(dbg);
   }
 
   function drawDebug(layer, game) {
     let list = [];
-    try { list = navigator.getGamepads ? [...navigator.getGamepads()] : []; } catch (e) { /* nada */ }
-    const lines = ['MANDO · Select+Start 2 s para cerrar', ''];
+    try { list = navigator.getGamepads ? [...navigator.getGamepads()] : []; } catch (e) { /* nothing */ }
+    const lines = ['CONTROLLER · Select+Start 2 s to close', ''];
     list.forEach((p, n) => {
       if (!p) return;
       const on = [];
       p.buttons.forEach((b, i) => { if (b.pressed || b.value > 0.05) on.push(b.value > 0 && b.value < 1 ? i + '(' + b.value.toFixed(2) + ')' : String(i)); });
       lines.push(`#${n} ${p.id}`);
-      lines.push(`   mapping: "${p.mapping || '(vacío)'}"${p.mapping === 'standard' ? '' : '  -> usando CONFIG.fallback'}`);
-      lines.push(`   botones (${p.buttons.length}): ${on.join(' ') || '—'}`);
-      lines.push(`   ejes (${p.axes.length}): ${p.axes.map((a, i) => i + ':' + (a >= 0 ? ' ' : '') + a.toFixed(2)).join('  ')}`);
+      lines.push(`   mapping: "${p.mapping || '(empty)'}"${p.mapping === 'standard' ? '' : '  -> using CONFIG.fallback'}`);
+      lines.push(`   buttons (${p.buttons.length}): ${on.join(' ') || '—'}`);
+      lines.push(`   axes (${p.axes.length}): ${p.axes.map((a, i) => i + ':' + (a >= 0 ? ' ' : '') + a.toFixed(2)).join('  ')}`);
     });
-    if (!list.some(Boolean)) lines.push('Ningún mando conectado (pulsa un botón).');
+    if (!list.some(Boolean)) lines.push('No controller connected (press a button).');
     lines.push('');
-    lines.push(`estándar: ${cur.map((v, i) => v ? i : null).filter(v => v != null).join(' ') || '—'}`);
-    lines.push(`stick: ${stick[0].toFixed(2)}, ${stick[1].toFixed(2)}   cruceta: ${dpadVec[0].toFixed(2)}, ${dpadVec[1].toFixed(2)}`);
-    lines.push(`modo: ${game ? 'partida' : 'menú'} · estado: ${G.Game ? G.Game.state : '?'} · capa: ${layer ? (layer.id || layer.className) : '—'}`);
-    lines.push(`foco: ${focusEl ? (focusEl.id || focusEl.className || focusEl.tagName) : '—'}`);
+    lines.push(`standard: ${cur.map((v, i) => v ? i : null).filter(v => v != null).join(' ') || '—'}`);
+    lines.push(`stick: ${stick[0].toFixed(2)}, ${stick[1].toFixed(2)}   d-pad: ${dpadVec[0].toFixed(2)}, ${dpadVec[1].toFixed(2)}`);
+    lines.push(`mode: ${game ? 'game' : 'menu'} · state: ${G.Game ? G.Game.state : '?'} · layer: ${layer ? (layer.id || layer.className) : '—'}`);
+    lines.push(`focus: ${focusEl ? (focusEl.id || focusEl.className || focusEl.tagName) : '—'}`);
     dbg.textContent = lines.join('\n');
   }
 
-  // ---------------- estilos (marco de foco y panel) ----------------
+  // ---------------- styles (focus frame and panel) ----------------
 
   const css = document.createElement('style');
   css.textContent = `
@@ -458,15 +458,15 @@ G.Gamepad = (() => {
       border: 1px solid #3a6; border-radius: 8px; pointer-events: none; }`;
   document.head.appendChild(css);
 
-  addEventListener('gamepadconnected', e => console.info('[Gamepad] conectado:', e.gamepad.id, '· mapping:', e.gamepad.mapping || '(vacío)'));
-  addEventListener('gamepaddisconnected', e => console.info('[Gamepad] desconectado:', e.gamepad.id));
+  addEventListener('gamepadconnected', e => console.info('[Gamepad] connected:', e.gamepad.id, '· mapping:', e.gamepad.mapping || '(empty)'));
+  addEventListener('gamepaddisconnected', e => console.info('[Gamepad] disconnected:', e.gamepad.id));
   requestAnimationFrame(tick);
 
-  /** "Atrás" desde fuera (tecla Atrás de Android / botón B en la app): pausa en partida, volver en menús. */
+  /** "Back" from outside (Android Back key / B button in the app): pauses in game, goes back in menus. */
   function backFromSystem() {
     const layer = topLayer();
     if (gameMode(layer)) { pause(); return; }
-    if (!layer) return;                                // nada que cerrar: no se sale del juego
+    if (!layer) return;                                // nothing to close: never quit the game
     if (layer.id === 'tap-start') { layer.click(); return; }
     back(layer);
   }
