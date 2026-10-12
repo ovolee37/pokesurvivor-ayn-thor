@@ -1,0 +1,17 @@
+{
+  "name": "pokesurvivor",
+  "private": true,
+  "description": "PokéSurvivor – Android-App mit Capacitor (das Spiel selbst braucht keinen Build)",
+  "scripts": {
+    "build:www": "powershell -ExecutionPolicy Bypass -File scripts/build-www.ps1",
+    "apk": "powershell -ExecutionPolicy Bypass -File scripts/build-www.ps1 && cd android && gradlew.bat assembleDebug",
+    "apk:release": "powershell -ExecutionPolicy Bypass -File scripts/build-www.ps1 && cd android && gradlew.bat assembleRelease"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.6.9",
+    "@capacitor/core": "^7.6.9"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.6.9"
+  }
+}

@@ -25,10 +25,12 @@ G.Input = (() => {
   addEventListener('mouseup', () => mdown = false);
 
   return {
-    /** Vector de movimiento del jugador (teclado o joystick táctil). */
+    /** Vector de movimiento del jugador (teclado, joystick táctil o mando). */
     axis() {
       const t = G.Touch && G.Touch.vector();
       if (t && (t[0] || t[1])) return t;
+      const p = G.Gamepad && G.Gamepad.vector();   // analógico (0..1), ver gamepad.js
+      if (p && (p[0] || p[1])) return p;
       let x = 0, y = 0;
       if (MOVE_KEYS.left.some(k => down.has(k))) x -= 1;
       if (MOVE_KEYS.right.some(k => down.has(k))) x += 1;

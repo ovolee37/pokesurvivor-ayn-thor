@@ -21,3 +21,6 @@ docs/CONTACTOS_CREADORES.md
 
 # Caché local de wrangler (Cloudflare)
 .wrangler/
+
+# Capacitor: kopierte Spieldateien (scripts/build-www.ps1)
+www/

@@ -1,0 +1,92 @@
+<!doctype html>
+<!-- Google-Anmeldung für die PokéSurvivor-App. Wird von GoogleLoginPlugin.java
+     über http://localhost:PORT/login in Chrome ausgeliefert (__CONFIG__,
+     __NONCE__ und __RETURN__ setzt das Plugin ein). -->
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>PokéSurvivor · Google</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b1530; color: #eaf2ff;
+    font: 17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; padding: 24px; box-sizing: border-box; text-align: center; }
+  h1 { margin: 0; font-size: 30px; color: #ffd23f; letter-spacing: .5px; }
+  p { margin: 0; max-width: 520px; color: #b9cbf0; }
+  button, a.btn { display: inline-block; min-width: 280px; padding: 16px 26px; border-radius: 12px; border: 0;
+    font: 700 19px system-ui, sans-serif; cursor: pointer; text-decoration: none; }
+  #go { background: #fff; color: #1f1f1f; }
+  #back { background: #ffd23f; color: #3a2600; }
+  .err { color: #ff8a8a; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>PokéSurvivor</h1>
+  <p id="msg"></p>
+  <button id="go" type="button"></button>
+  <a id="back" class="btn" hidden></a>
+</main>
+<script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-auth-compat.js"></script>
+<script>
+(function () {
+  var CFG = __CONFIG__, N = '__NONCE__', RETURN = '__RETURN__';
+  var lang = (navigator.language || 'en').slice(0, 2);
+  var TEXTS = {
+    de: { intro: 'Melde dich mit deinem Google-Konto an. Danach geht es zurück ins Spiel.', go: 'Mit Google anmelden',
+          busy: 'Anmeldung läuft…', ok: 'Angemeldet! Du kannst jetzt zum Spiel zurück.', back: 'Zurück zum Spiel',
+          fail: 'Anmeldung fehlgeschlagen: ', retry: 'Nochmal versuchen', noSdk: 'Firebase konnte nicht geladen werden. Bist du online?' },
+    es: { intro: 'Entra con tu cuenta de Google. Después vuelves al juego.', go: 'Entrar con Google',
+          busy: 'Entrando…', ok: '¡Listo! Ya puedes volver al juego.', back: 'Volver al juego',
+          fail: 'No se pudo entrar: ', retry: 'Intentar otra vez', noSdk: 'No se pudo cargar Firebase. ¿Tienes conexión?' },
+    en: { intro: 'Sign in with your Google account, then you go back to the game.', go: 'Sign in with Google',
+          busy: 'Signing in…', ok: 'Done! You can go back to the game now.', back: 'Back to the game',
+          fail: 'Sign-in failed: ', retry: 'Try again', noSdk: 'Could not load Firebase. Are you online?' }
+  };
+  var T = TEXTS[lang] || TEXTS.en;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var msg = $('msg'), go = $('go'), back = $('back');
+  msg.textContent = T.intro; go.textContent = T.go;
+  back.textContent = T.back; back.href = RETURN;
+
+  function post(body) {
+    body.n = N;
+    return fetch('/token', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) });
+  }
+
+  if (!window.firebase) { msg.textContent = T.noSdk; msg.className = 'err'; go.hidden = true; return; }
+  firebase.initializeApp(CFG);
+  var auth = firebase.auth();
+  // In Chrome nichts behalten: angemeldet wird das Spiel, nicht der Browser.
+  auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
+
+  go.onclick = function () {
+    go.disabled = true; msg.className = ''; msg.textContent = T.busy;
+    var provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    auth.signInWithPopup(provider).then(function (res) {
+      var c = res.credential || {};
+      if (!c.idToken && !c.accessToken) throw { code: 'auth/missing-credential', message: 'Google lieferte kein Token' };
+      return post({ idToken: c.idToken || null, accessToken: c.accessToken || null }).then(function () {
+        auth.signOut();
+        msg.textContent = T.ok; go.hidden = true; back.hidden = false;
+        // Zurück in die App (klappt nicht immer ohne Tippen: dafür der Button).
+        try { location.href = RETURN; } catch (e) { /* Button bleibt */ }
+      });
+    }).catch(function (e) {
+      var code = (e && e.code) || 'auth/internal-error';
+      msg.textContent = T.fail + code; msg.className = 'err';
+      go.disabled = false; go.textContent = T.retry;
+      // Fehler werden nicht an die App gemeldet: so bleibt "Nochmal versuchen"
+      // möglich. Kommt man ohne Anmeldung ins Spiel zurück, bricht das Spiel ab.
+    });
+  };
+})();
+</script>
+</body>
+</html>

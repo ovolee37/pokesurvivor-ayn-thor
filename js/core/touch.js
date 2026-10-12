@@ -88,6 +88,13 @@ G.Touch = (() => {
     ctx.restore();
   }
 
-  return { init, vector, draw, clearButtons, addButton, reset,
+  /** Con el mando se oculta lo táctil; vuelve solo al tocar la pantalla. */
+  function setActive(on) {
+    active = !!on;
+    document.body.classList.toggle('touch', active);
+    if (!active) reset();
+  }
+
+  return { init, vector, draw, clearButtons, addButton, reset, setActive,
            get active() { return active; }, get stick() { return stick; } };
 })();

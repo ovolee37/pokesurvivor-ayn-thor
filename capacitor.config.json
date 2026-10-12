@@ -1,0 +1,8 @@
+{
+  "appId": "de.aynthor.pokesurvivor",
+  "appName": "PokéSurvivor",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#03060f"
+  }
+}

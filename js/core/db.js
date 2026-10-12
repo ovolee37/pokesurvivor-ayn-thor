@@ -492,10 +492,24 @@ G.DB = (() => {
     } catch (e) { return { ok: false, error: authError(e) }; }
   }
 
+  /**
+   * Google: en el navegador, con la ventana de Google. Dentro de la app Android
+   * Google no deja usar esa ventana: se entra en Chrome y llega el token
+   * (G.Native.googleSignIn), con el que se entra aquí igual.
+   */
+  async function googleCredential() {
+    const t = await G.Native.googleSignIn(G.FIREBASE_CONFIG);
+    return firebase.auth.GoogleAuthProvider.credential(t.idToken || null, t.accessToken || null);
+  }
+  function googleSignIn() {
+    if (G.Native && G.Native.isApp) return googleCredential().then(c => auth.signInWithCredential(c));
+    return auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+  }
+
   async function loginWithGoogle() {
     if (mode !== 'cloud') return { ok: false, error: 'Entrar con Google necesita la versión publicada del juego.' };
     try {
-      const cred = await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+      const cred = await googleSignIn();
       // Cuenta de Google nueva con el tope del mes alcanzado: no se crea.
       if (cred.additionalUserInfo && cred.additionalUserInfo.isNewUser && G.Signups && !(await G.Signups.check())) {
         await cred.user.delete().catch(() => {});
@@ -581,7 +595,8 @@ G.DB = (() => {
         if (!pass) return { ok: false, error: 'Escribe tu contraseña.' };
         await cu.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(cu.email, pass));
       } else {
-        await cu.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider());
+        if (G.Native && G.Native.isApp) await cu.reauthenticateWithCredential(await googleCredential());
+        else await cu.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider());
       }
       clearTimeout(pushT); clearTimeout(retryT); pending = false;
       stopListening();

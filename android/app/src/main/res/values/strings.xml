@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PokéSurvivor</string>
+    <string name="title_activity_main">PokéSurvivor</string>
+    <string name="package_name">de.aynthor.pokesurvivor</string>
+    <string name="custom_url_scheme">de.aynthor.pokesurvivor</string>
+</resources>

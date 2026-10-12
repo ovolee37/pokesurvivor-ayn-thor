@@ -26,7 +26,9 @@
   else boot();
 
   // Instalable como app (PWA). Sólo con http(s): abierto con doble clic (file://) no hace falta.
-  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  // Dentro de la app Android (Capacitor) no: los archivos ya van dentro de la app
+  // y la caché del service worker sólo daría versiones viejas.
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !window.Capacitor) {
     addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(e => console.warn('[PWA]', e.message)));
   }
 })();

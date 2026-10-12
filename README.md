@@ -159,6 +159,54 @@ python tools/fetch_credits.py    # CREDITS.md
 - **Iconos.** Mapas de caracteres convertidos a canvas y data URLs; siempre a
   múltiplos enteros de su tamaño para que el píxel quede limpio.
 
+## Android-Build
+
+Die Android-App (getestet für den AYN Thor, Android 13) ist eine
+[Capacitor 7](https://capacitorjs.com/)-Hülle um genau dieselben Dateien wie die
+Web-Version. Am Spiel selbst ändert sich nichts.
+
+**Voraussetzungen:** Node.js LTS, JDK 21, Android SDK (platform-tools,
+platforms;android-35, build-tools 34+), `ANDROID_HOME` gesetzt.
+
+```powershell
+npm install                                                          # einmalig: Capacitor
+powershell -ExecutionPolicy Bypass -File scripts\build-www.ps1 -Bundle # js/app.min.js bauen, nach www\ kopieren, cap sync
+cd android; .\gradlew.bat assembleDebug                              # Debug-APK
+adb install -r app\build\outputs\apk\debug\app-debug.apk
+```
+
+- `scripts/build-www.ps1` kopiert das Spiel nach `www/` (ohne `.git`, `.github`,
+  `tools`, `docs`, `android`, `node_modules`, `scripts`, `functions`,
+  `cloudflare`, die Firebase-Projektdateien und `dev.html`) und führt
+  `npx cap sync android` aus. Mit `-Bundle` läuft vorher `node tools/build.js`,
+  mit `-NoSync` wird nur kopiert. `js/core/firebase-config.js` bleibt drin, das
+  Spiel braucht sie.
+- Kurzform: `npm run apk` (Debug) bzw. `npm run apk:release` (Release).
+- **Release-APK** (`de.aynthor.pokesurvivor`, nicht debuggable, mit eigenem
+  Schlüssel signiert): `cd android; .\gradlew.bat assembleRelease` →
+  `android\app\build\outputs\apk\release\app-release.apk`. Die Signatur
+  kommt aus `android/keystore.properties` und
+  `android/keystore/pokesurvivor-release.jks`. Beide Dateien werden **nicht**
+  committet (siehe `android/.gitignore`) und müssen sicher gesichert werden:
+  Ohne sie lassen sich keine Updates für die installierte App mehr bauen.
+- Die App ist als Spiel gekennzeichnet: `android:appCategory="game"`,
+  `android:isGame="true"` und `android.intent.category.APP_GAME` im
+  Launcher-Filter. Querformat (`sensorLandscape`), Vollbild, Bildschirm bleibt an.
+- Die Zurück-Taste und die B-Taste schließen die App nicht. In Menüs gehen sie
+  eine Ebene zurück, im Spiel pausieren sie (`MainActivity.java` → Ereignis
+  `ps-back` → `js/core/native.js`).
+- In der App wird kein Service Worker registriert.
+- „Mit Google anmelden“: Google sperrt die Anmeldung in WebViews. Darum öffnet
+  die App Chrome mit einer Login-Seite, die ein kleiner lokaler Server
+  ausliefert (`http://localhost:<Port>`, nur 127.0.0.1, mit Einmal-Code;
+  `GoogleLoginPlugin.java`, `res/raw/google_login.html`). Das Google-Token geht
+  zurück an die App, und das Spiel meldet sich damit per `signInWithCredential`
+  an (`js/core/native.js`, `js/core/db.js`). Voraussetzung: `localhost` steht im
+  Firebase-Projekt unter den autorisierten Domains (Standard).
+- Controller: siehe `js/core/gamepad.js` (Belegung in `CONFIG`). Select + Start
+  2 s halten öffnet das Debug-Overlay mit Buttons und Achsen.
+- Debuggen: Bei verbundenem Gerät `chrome://inspect` am PC (nur Debug-APK).
+
 ## Créditos y licencia
 
 Sprites de [SpriteCollab](https://github.com/PMDCollab/SpriteCollab) bajo
