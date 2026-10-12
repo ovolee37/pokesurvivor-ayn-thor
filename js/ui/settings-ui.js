@@ -87,7 +87,9 @@ G.SettingsUI = (() => {
              <button class="btn small" id="set-full">${isFull() ? 'Salir' : 'Activar'}</button></div>`
            : iosTip() ? `<div class="set-row"><div class="grow"><b>Pantalla completa</b><small>${esc(IOS_TIP)}</small></div></div>` : '');
     } else if (tab === 'ctl') {
-      box.innerHTML = section('En móvil o tablet')
+      box.innerHTML = section('Apuntado', 'Automático: los ataques van solos al enemigo más cercano. Manual: van hacia donde apuntas con el stick derecho del mando (o manteniendo el clic izquierdo en PC); si no apuntas, hacia donde caminas.')
+        + choice('aim', [['auto', 'Automático'], ['manual', 'Manual']])
+        + section('En móvil o tablet')
         + `<p class="sub">Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar. Se juega en horizontal.</p>`
         + `<div class="set-row"><div class="grow"><b>Tamaño del joystick</b><small>Cuánto hay que arrastrar el dedo.</small></div></div>`
         + choice('stick', [[0.8, 'Pequeño'], [1, 'Normal'], [1.25, 'Grande']])
@@ -98,6 +100,7 @@ G.SettingsUI = (() => {
              <div><kbd>Q</kbd> / <kbd>E</kbd></div><span>ataque anterior / siguiente</span>
              <div><kbd>Esc</kbd> o <kbd>P</kbd></div><span>pausa</span>
              <div><kbd>1</kbd>–<kbd>3</kbd></div><span>elegir carta al subir de nivel</span>
+             <div><kbd>R</kbd></div><span>cambiar las cartas al subir de nivel</span>
            </div>`;
     } else if (tab === 'acc') {
       renderAccount(box);

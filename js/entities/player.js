@@ -334,22 +334,28 @@ G.Player = class Player {
     // Con una horda encima casi siempre te toca algo; si eso ganara siempre,
     // los ataques a distancia no le darían nunca al jefe.
     // Sin enemigos, apunta a la roca o cofre más cercano.
+    //
+    // Aim mode (Settings > Controls, G.Settings 'aim'):
+    //   'auto'   the targeting above; the right stick and the mouse are ignored.
+    //   'manual' no auto-targeting: attacks go where the right stick (or the
+    //            held mouse, see gamepad.js) points; without it, where you
+    //            walk; standing still keeps the last direction. The target is
+    //            the nearest enemy inside that cone.
     const all = G.EnemyMgr.all();
-    const m = this.activeMove();
-    const ranged = !!m && (m.kind === 'projectile' || m.kind === 'beam');
-    const threat = G.Projectiles.nearest(all, this.x, this.y, this.r + 24);
-    const boss = all.find(e => e.boss && !e.dead && G.U.dist(this.x, this.y, e.x, e.y) < 330);
-    const tg = (ranged ? boss || threat : threat || boss)
-            || G.Projectiles.nearest(all, this.x, this.y, 520)
-            || G.World.nearestBreakable(this.x, this.y, 200);
-    // Manual aim (right stick or mouse held, see gamepad.js): the chosen
-    // direction wins; the target is the nearest enemy inside that cone.
-    const manual = G.Gamepad ? G.Gamepad.aimAngle(this) : null;
-    this.manualAim = manual != null;
+    this.manualAim = G.Settings.get('aim') === 'manual';
     if (this.manualAim) {
-      this.aim = manual;
-      this.target = G.Gamepad.targetInCone(all, this, manual);
+      const ang = G.Gamepad ? G.Gamepad.aimAngle(this) : null;
+      if (ang != null) this.aim = ang;
+      else if (this.walking) this.aim = this.moveAngle;
+      this.target = G.Gamepad ? G.Gamepad.targetInCone(all, this, this.aim) : null;
     } else {
+      const m = this.activeMove();
+      const ranged = !!m && (m.kind === 'projectile' || m.kind === 'beam');
+      const threat = G.Projectiles.nearest(all, this.x, this.y, this.r + 24);
+      const boss = all.find(e => e.boss && !e.dead && G.U.dist(this.x, this.y, e.x, e.y) < 330);
+      const tg = (ranged ? boss || threat : threat || boss)
+              || G.Projectiles.nearest(all, this.x, this.y, 520)
+              || G.World.nearestBreakable(this.x, this.y, 200);
       this.target = tg;
       if (tg) this.aim = Math.atan2(tg.y - this.y, tg.x - this.x);
       else if (this.walking) this.aim = this.moveAngle;

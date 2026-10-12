@@ -7,10 +7,11 @@
  *   press, A presses, B goes back, L1/R1 switch tabs.
  * - It switches between the two on its own, based on the game state.
  * - Select + Start for 2 s: debug panel (id, mapping, buttons, axes).
- * - Manual aim: tilting the right stick (or holding the left mouse button on
- *   the game on PC) fires the attacks in that direction; releasing it goes back
- *   to the usual auto-aim at the nearest enemy. player.js reads it through
- *   aimAngle() / targetInCone(). Based on the fork by Iván Freire
+ * - Manual aim (only with Settings > Controls > Aim: Manual): tilting the right
+ *   stick (or holding the left mouse button on the game on PC) fires the
+ *   attacks in that direction. player.js reads it through aimAngle() /
+ *   targetInCone().
+ * - Level-up screen: L1 / R1 reroll the cards (like the R key). Based on the fork by Iván Freire
  *   (github.com/IvanFreireDacoba/pokesurvivor).
  *
  * Buttons go by POSITION in the standard layout (0 = bottom, 1 = right,
@@ -378,6 +379,7 @@ G.Gamepad = (() => {
     const fresh = layerT < CONFIG.layerGrace;
     if (act === 'confirm') { if (!fresh) doConfirm(layer, list); }
     else if (act === 'back') { if (!fresh) back(layer); }
+    else if ((act === 'tabPrev' || act === 'tabNext') && layer.id === 'scr-levelup') { if (!fresh) G.RunUI.reroll(); }
     else if (act === 'tabPrev') switchTab(layer, -1);
     else if (act === 'tabNext') switchTab(layer, 1);
     else if (act === 'pause') pause();
