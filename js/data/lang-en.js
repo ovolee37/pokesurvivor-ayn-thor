@@ -403,7 +403,7 @@ G.I18n.add({
   'ataque anterior / siguiente': 'previous / next move', 'elegir carta al subir de nivel': 'choose a card when leveling up',
   'cambiar las cartas al subir de nivel': 'reroll the cards when leveling up',
   'Apuntado': 'Aiming', 'Automático': 'Automatic', 'Manual': 'Manual',
-  'Automático: los ataques van solos al enemigo más cercano. Manual: van hacia donde apuntas con el stick derecho del mando (o manteniendo el clic izquierdo en PC); si no apuntas, hacia donde caminas.': 'Automatic: attacks go to the nearest enemy on their own. Manual: they go where you aim with the controller\'s right stick (or by holding the left mouse button on PC); if you don\'t aim, where you walk.',
+  'Automático: los ataques van solos al enemigo más cercano. Manual: sólo atacas mientras apuntas con el stick derecho del mando (o manteniendo el clic izquierdo en PC), hacia donde apuntas.': 'Automatic: attacks go to the nearest enemy on their own. Manual: you only attack while aiming with the controller\'s right stick (or by holding the left mouse button on PC), in that direction.',
   'Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar. Se juega en horizontal.': 'Put your finger anywhere and drag to move: the joystick appears where you touch. Tap a move at the bottom to switch to it and the top-right button to pause. Play in landscape.',
   'Apodo': 'Nickname', 'Es único y no se puede cambiar.': 'It\'s unique and can\'t be changed.', 'Tipo de cuenta': 'Account type', 'Partida': 'Save',
   'Cuenta de este navegador': 'This browser\'s account', 'Nombre y contraseña': 'Name and password', 'Google': 'Google',

@@ -30,9 +30,10 @@ G.Combat = (() => {
     m.t -= dt;
     if (m.t > 0) return;
     // Los ataques que necesitan blanco esperan a tenerlo (no gastes animación al aire).
-    // With manual aim, directed attacks fire where you aim even with no one
-    // there (the ones that seek a target on their own, like chain or meteor,
-    // still wait for one).
+    // With manual aim, directed attacks only fire while you aim, and then
+    // where you aim even with no one there (the ones that seek a target on
+    // their own, like chain or meteor, still wait for one).
+    if (pl.manualAim && !pl.aiming && needsTarget(m)) { m.t = 0.05; return; }
     const free = pl.manualAim && FREE_AIM.includes(m.kind);
     if (needsTarget(m) && !free && !(pl.target && G.U.dist(pl.x, pl.y, pl.target.x, pl.target.y) <= reach(m))) {
       m.t = 0.05;

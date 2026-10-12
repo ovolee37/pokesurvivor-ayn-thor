@@ -337,17 +337,18 @@ G.Player = class Player {
     //
     // Aim mode (Settings > Controls, G.Settings 'aim'):
     //   'auto'   the targeting above; the right stick and the mouse are ignored.
-    //   'manual' no auto-targeting: attacks go where the right stick (or the
-    //            held mouse, see gamepad.js) points; without it, where you
-    //            walk; standing still keeps the last direction. The target is
-    //            the nearest enemy inside that cone.
+    //   'manual' no auto-targeting: directed attacks only fire while the
+    //            right stick (or the held mouse, see gamepad.js) aims, in that
+    //            direction (combat.js checks this.aiming). The target is the
+    //            nearest enemy inside that cone.
     const all = G.EnemyMgr.all();
     this.manualAim = G.Settings.get('aim') === 'manual';
     if (this.manualAim) {
       const ang = G.Gamepad ? G.Gamepad.aimAngle(this) : null;
-      if (ang != null) this.aim = ang;
+      this.aiming = ang != null;
+      if (this.aiming) this.aim = ang;
       else if (this.walking) this.aim = this.moveAngle;
-      this.target = G.Gamepad ? G.Gamepad.targetInCone(all, this, this.aim) : null;
+      this.target = this.aiming ? G.Gamepad.targetInCone(all, this, this.aim) : null;
     } else {
       const m = this.activeMove();
       const ranged = !!m && (m.kind === 'projectile' || m.kind === 'beam');

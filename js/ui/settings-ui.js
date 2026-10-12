@@ -87,7 +87,7 @@ G.SettingsUI = (() => {
              <button class="btn small" id="set-full">${isFull() ? 'Salir' : 'Activar'}</button></div>`
            : iosTip() ? `<div class="set-row"><div class="grow"><b>Pantalla completa</b><small>${esc(IOS_TIP)}</small></div></div>` : '');
     } else if (tab === 'ctl') {
-      box.innerHTML = section('Apuntado', 'Automático: los ataques van solos al enemigo más cercano. Manual: van hacia donde apuntas con el stick derecho del mando (o manteniendo el clic izquierdo en PC); si no apuntas, hacia donde caminas.')
+      box.innerHTML = section('Apuntado', 'Automático: los ataques van solos al enemigo más cercano. Manual: sólo atacas mientras apuntas con el stick derecho del mando (o manteniendo el clic izquierdo en PC), hacia donde apuntas.')
         + choice('aim', [['auto', 'Automático'], ['manual', 'Manual']])
         + section('En móvil o tablet')
         + `<p class="sub">Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar. Se juega en horizontal.</p>`
