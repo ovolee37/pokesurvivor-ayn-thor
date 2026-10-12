@@ -212,6 +212,24 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 - Debugging: with the device connected, open `chrome://inspect` on the PC
   (debug APK only).
 
+### Changes for the Android app
+
+Everything added or changed for the APK is in a single commit:
+[`a1675dc`](https://github.com/ovolee37/pokesurvivor-ayn-thor/commit/a1675dc52b6051213668de845433c81a3c247112).
+It is based on [JPTER78/pokesurvivor](https://github.com/JPTER78/pokesurvivor)
+at commit `f552173`.
+
+- **New code:** `js/core/gamepad.js` (controller support), `js/core/native.js`
+  (Back button, Google login bridge), `MainActivity.java`,
+  `GoogleLoginPlugin.java`, `res/raw/google_login.html`,
+  `scripts/build-www.ps1`.
+- **Small changes to the game** (8 lines removed in total): `js/core/db.js`,
+  `js/core/input.js`, `js/core/touch.js`, `js/main.js`, `index.html`,
+  `en/index.html`, `dev.html`, `js/app.min.js` (rebuilt bundle).
+- **Generated / boilerplate:** the Capacitor project in `android/` (Gradle
+  files, icons, splash screens, example tests), `capacitor.config.json`,
+  `package.json`, `package-lock.json`.
+
 ## Créditos y licencia
 
 Sprites de [SpriteCollab](https://github.com/PMDCollab/SpriteCollab) bajo
