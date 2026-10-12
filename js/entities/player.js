@@ -342,8 +342,8 @@ G.Player = class Player {
     const tg = (ranged ? boss || threat : threat || boss)
             || G.Projectiles.nearest(all, this.x, this.y, 520)
             || G.World.nearestBreakable(this.x, this.y, 200);
-    // Apuntado manual (stick derecho o ratón pulsado, ver gamepad.js): manda
-    // la dirección elegida; el blanco es el enemigo más cercano en ese cono.
+    // Manual aim (right stick or mouse held, see gamepad.js): the chosen
+    // direction wins; the target is the nearest enemy inside that cone.
     const manual = G.Gamepad ? G.Gamepad.aimAngle(this) : null;
     this.manualAim = manual != null;
     if (this.manualAim) {
