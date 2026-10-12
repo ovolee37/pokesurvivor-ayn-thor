@@ -49,6 +49,10 @@ G.Player = class Player {
     this.xpNext = Player.xpFor(1);
     this.kills = 0;
     this.bosses = 0;
+    this.rerolls = 0;          // veces que ha cambiado las cartas de nivel en esta run
+    this.rerollBonus = perks.rerolls || 0;   // cambios comprados en Mejoras (más el gratis)
+    this.critChance = perks.crit || 0;       // probabilidad de golpe crítico (Mejoras)
+    this.banned = new Set();                 // movimientos vetados (Mejoras → Veto): no salen en las cartas
     this.coins = 0;            // monedas recogidas en esta run
     this.t1 = 0; this.t10 = 0; // tickets del gacha recogidos en esta run
     this.dmgDealt = 0;
@@ -198,7 +202,10 @@ G.Player = class Player {
       eff = G.Types.label(k);
       amount *= k * G.Weather.mult(type);
     }
-    const d = Math.max(1, amount * (1 - this.reduction));
+    // Con un ataque cuerpo a cuerpo activo se recibe un 25 % menos: hay que
+    // estar encima de los enemigos para pegar (iban muy por detrás).
+    const close = this.activeGroup().some(m => m.kind === 'melee') ? 0.75 : 1;
+    const d = Math.max(1, amount * (1 - this.reduction) * close);
     this.hp -= d;
     this.invuln = 0.45;
     this.flash = 0.14;
@@ -335,9 +342,18 @@ G.Player = class Player {
     const tg = (ranged ? boss || threat : threat || boss)
             || G.Projectiles.nearest(all, this.x, this.y, 520)
             || G.World.nearestBreakable(this.x, this.y, 200);
-    this.target = tg;
-    if (tg) this.aim = Math.atan2(tg.y - this.y, tg.x - this.x);
-    else if (this.walking) this.aim = this.moveAngle;
+    // Apuntado manual (stick derecho o ratón pulsado, ver gamepad.js): manda
+    // la dirección elegida; el blanco es el enemigo más cercano en ese cono.
+    const manual = G.Gamepad ? G.Gamepad.aimAngle(this) : null;
+    this.manualAim = manual != null;
+    if (this.manualAim) {
+      this.aim = manual;
+      this.target = G.Gamepad.targetInCone(all, this, manual);
+    } else {
+      this.target = tg;
+      if (tg) this.aim = Math.atan2(tg.y - this.y, tg.x - this.x);
+      else if (this.walking) this.aim = this.moveAngle;
+    }
 
     // --- animación: mira al objetivo al atacar, si no a donde camina ---
     const face = this.attackFace > 0 || !this.walking ? this.aim : this.moveAngle;

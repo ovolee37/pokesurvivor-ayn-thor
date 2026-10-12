@@ -4,7 +4,7 @@
  * jugador. Dura GRIETA_TTL segundos; si entras, te lleva (con todo el grupo)
  * a una arena cerrada en el Mundo Distorsión, contra un Pokémon LEGENDARIO.
  *
- *   ganas    el legendario suelta tickets ×10 y más, y cada uno se lleva un
+ *   ganas    el legendario suelta tickets (el ×10, la mitad de las veces) y monedas, y cada uno se lleva un
  *            VÍNCULO (fusiona movimientos, ver Player.fuse); a los pocos
  *            segundos volvéis al mapa donde estabais y se elige la fusión
  *   pierdes  (caéis todos o se acaba el tiempo) volvéis sin premio, con algo
@@ -19,15 +19,17 @@
  */
 G.Rift = (() => {
   // (0.14 hasta el 11-10-2026: más grietas para que se vean los vínculos)
+  // Menos azar (12-10-2026): cada vez que no sale, la siguiente es más
+  // probable (20 %, 40 %, 60 %, 80 %, 100 %): como mucho 2,5 min sin grieta.
   const CHECK = 30, CHANCE = 0.2, TTL = 45;
   const ARENA_R = 11, ARENA_TIME = 120, FROM = 75;
   let rift = null;          // { x, y, ttl, t }
   let arena = null;         // { tx, ty, r, dex, shiny, x, y, back, biome, t, phase, endT, bossId }
-  let checkT = CHECK, asked = false, downT = 0;
+  let checkT = CHECK, asked = false, downT = 0, misses = 0;
   const authority = () => !G.Coop.active || G.Coop.isHost;
   const TS = () => G.Tiles.T * G.Sprites.PX;
 
-  function reset() { rift = null; arena = null; checkT = CHECK; asked = false; downT = 0; }
+  function reset() { rift = null; arena = null; checkT = CHECK; asked = false; downT = 0; misses = 0; }
 
   // ---------------- grieta en el mapa ----------------
 
@@ -41,7 +43,9 @@ G.Rift = (() => {
       checkT -= dt;
       if (checkT <= 0) {
         checkT = CHECK;
-        if (Math.random() < CHANCE && !G.EnemyMgr.bossAlive()) open();
+        if (G.EnemyMgr.bossAlive()) return;           // con un jefe vivo no cuenta como intento
+        if (Math.random() < CHANCE * (1 + misses)) { misses = 0; open(); }
+        else misses++;
       }
     }
     if (arena) arenaTick(dt, pl);
@@ -86,7 +90,12 @@ G.Rift = (() => {
     forceType = forceType || nextType; nextType = null;
     let pool = G.DEX.filter(p => p.leg && G.SPRITE_META[p.dex]);
     if (forceType && pool.some(p => p.types.includes(forceType))) pool = pool.filter(p => p.types.includes(forceType));
-    const mon = G.U.pick(pool);
+    // Los legendarios que aún no has vencido salen 4 veces más (menos repetidos).
+    const beaten = (G.DB.save && G.DB.save.legends) || {};
+    const ws = pool.map(p => (beaten[p.dex] ? 1 : 4));
+    let r = Math.random() * ws.reduce((a, b) => a + b, 0), mi = 0;
+    while (mi < pool.length - 1 && (r -= ws[mi]) > 0) mi++;
+    const mon = pool[mi];
     const cfg = {
       tx: 5000 + Math.floor(Math.random() * 3000), ty: 5000 + Math.floor(Math.random() * 3000), r: ARENA_R,
       dex: mon.dex, shiny: G.Sprites.hasShiny(mon.dex) && Math.random() < 1 / 512,

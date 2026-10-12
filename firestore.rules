@@ -19,13 +19,95 @@ service cloud.firestore {
     match /saves/{uid} {
       allow read, delete: if signedIn() && me() == uid;
 
-      allow create, update: if signedIn()
+      allow create: if signedIn()
         && me() == uid
-        && request.resource.data.keys().hasOnly(['save', 'updatedAt', 'v'])
+        && validSaveDoc()
+        && saneSave(request.resource.data.save)
+        && freshSave(request.resource.data.save);
+      allow update: if signedIn()
+        && me() == uid
+        && validSaveDoc()
+        && saneSave(request.resource.data.save)
+        && possibleSave(resource.data.save, request.resource.data.save,
+                        (request.time - resource.data.updatedAt).seconds());
+    }
+
+    // ---------- anti-trampas de la partida guardada ----------
+    // La partida la escribe el navegador, así que se puede editar. Aquí se
+    // rechaza lo imposible: entre un guardado y el siguiente no se puede ganar
+    // más de lo que da jugar ese rato (con mucho margen, como alguien muy bueno
+    // jugando sin parar), ni tener más Pokémon nuevos que tiradas del gacha, ni
+    // cobrar logros que no existen o misiones de más. Si se rechaza, el juego
+    // reintenta y al final vuelve a lo que hay en la nube (db.js, adoptRemote).
+    //   tickets x1   1 de cada 400 derrotados: < 1 cada 30 s jugando
+    //   tickets x10  jefes (1 de cada 3) y grietas: < 1 cada 5 min
+    //   monedas      una run da < 15 por segundo con todas las mejoras
+    //   misiones     3 al día + 2 a la semana; hasta 3 x1, 1 x10 y 1.000 monedas
+    //   logros       cada uno con su premio (lista generada abajo)
+    function validSaveDoc() {
+      return request.resource.data.keys().hasOnly(['save', 'updatedAt', 'v'])
         && request.resource.data.save is map
         && request.resource.data.v is int
         && request.resource.data.updatedAt == request.time;
     }
+    function tk(s, k) { return s.get('tickets', {}).get(k, 0); }
+    function cnt(s, k) { return s.get(k, {}).size(); }
+    function mis(s) { return s.get('stats', {}).get('missionsDone', 0); }
+    function saneSave(s) {
+      return s.get('coins', 0) is number && s.get('coins', 0) >= 0
+        && tk(s, 't1') is number && tk(s, 't1') >= 0
+        && tk(s, 't10') is number && tk(s, 't10') >= 0
+        && mis(s) is number && s.get('created', 0) is number
+        && cnt(s, 'owned') <= 1100 && cnt(s, 'shiny') <= 1100;
+    }
+    // Partida nueva: la de empezar (borrarla y crearla otra vez no da nada).
+    function freshSave(s) {
+      return s.get('coins', 0) <= 2000 && tk(s, 't1') <= 10 && tk(s, 't10') <= 2
+        && cnt(s, 'owned') <= 3 && cnt(s, 'shiny') <= 1 && cnt(s, 'ach') <= 5 && mis(s) <= 3
+        && s.get('created', 0) > request.time.toMillis() - 2 * 86400000;
+    }
+    // Todo se cuenta en "tiradas" (un ticket x1 = 1, un x10 = 10): lo que tenías
+    // + lo que pudiste ganar - lo que te queda = tiradas que pudiste hacer, y
+    // tienen que alcanzar para los Pokémon, shinies y monedas nuevos.
+    // (Firebase vuelve a calcular cada argumento cada vez que se usa y hay un
+    // tope de 1.000 operaciones: lo caro, los logros, sale una sola vez.)
+    function possibleSave(o, n, secs) {
+      return n.get('created', 0) == o.get('created', 0)
+        && n.get('ach', {}).keys().hasAll(o.get('ach', {}).keys())
+        && cnt(n, 'ach') <= 140                                           // hay 127 (un logro inventado sólo da 1 ticket x1)
+        && mis(n) >= mis(o)
+        && mis(n) <= 10 + (request.time.toMillis() - o.get('created', 0)) / 86400000 * 5
+        && budget(o, n, secs > 3600 ? 3600 : (secs > 0 ? secs : 0),        // como mucho 1 h de juego por guardado (se guarda cada 30 min)
+                  secs >= 60 ? 1.0 : (secs > 0 ? secs / 60.0 : 0.0),        // guardados muy seguidos: menos margen fijo
+                  mis(n) - mis(o));
+    }
+    // e: segundos de juego que pudo haber · k: margen fijo (0-1) · dm: misiones cobradas
+    function budget(o, n, e, k, dm) {
+      return tk(o, 't1') + 10 * tk(o, 't10')
+        + 3 * k + e / 30 + cnt(n, 'ach') - cnt(o, 'ach') + 3 * dm     // tickets x1 que pudo ganar
+        + 10 * (1 * k + e / 300 + dm)                                  // tickets x10
+        + achV()                                                        // premios de los logros nuevos
+        - tk(n, 't1') - 10 * tk(n, 't10')
+        >= mx(mx(0, cnt(n, 'owned') - cnt(o, 'owned') - 3 * k - e / 600),
+              mx(cnt(n, 'shiny') - cnt(o, 'shiny') - 2 * k - e / 900,
+                 // monedas: lo de jugar, logros y misiones; lo que sobre, reembolsos del gacha (< 300 por tirada)
+                 (n.get('coins', 0) - o.get('coins', 0) - 8000 * k - 40 * e - 1000 * dm) / 300));
+    }
+    function mx(a, b) { return a > b ? a : b; }
+    // <logros> (generado por tools/make_rules.js, no editar a mano)
+    function achNew() { return request.resource.data.save.get('ach', {}).diff(resource.data.save.get('ach', {})).addedKeys(); }
+    function achV() { return 1 * achNew().intersection(['own10', 'lvl20', 'kills1k', 'boss1', 'group1'].toSet()).size()
+        + 2 * achNew().intersection(['shiny1', 'evo1', 'items5', 'rift1', 'mis10'].toSet()).size()
+        + 3 * achNew().intersection(['time10'].toSet()).size()
+        + 4 * achNew().intersection(['own50'].toSet()).size()
+        + 10 * achNew().intersection(['own100', 'shiny5', 'pulls100', 'time15', 'lvl40', 'runs50', 'kills10k', 'boss25', 'evo25', 'itemsAll', 'rift10', 'leg10', 'mis50', 'group10'].toSet()).size()
+        + 20 * achNew().intersection(['own250', 'shiny20', 'time20', 'boss100', 'arenas', 'leg30'].toSet()).size()
+        + 30 * achNew().intersection(['own500', 'kills100k', 'evoAll', 'mis200'].toSet()).size()
+        + 50 * achNew().intersection(['legAll'].toSet()).size()
+        + 100 * achNew().intersection(['ownAll'].toSet()).size()
+        + 0.333 * achNew().intersection(['own1'].toSet()).size()
+        + 0.667 * achNew().intersection(['time5'].toSet()).size(); }
+    // </logros>
 
     // ---------- apodos ----------
 

@@ -16,8 +16,8 @@ G.SettingsUI = (() => {
     $('btn-settings').innerHTML = G.Icons.html('gear', 20);
     $('btn-settings').onclick = () => open();
     $('btn-pause-settings').onclick = () => open('sound');
-    // Pantalla completa (si el navegador la permite).
-    if (canFull()) {
+    // Pantalla completa (si el navegador la permite; en iPhone, cómo conseguirla).
+    if (canFull() || iosTip()) {
       $('btn-full').classList.remove('hidden');
       $('btn-full').innerHTML = G.Icons.html('full', 20);
       $('btn-full').onclick = toggleFull;
@@ -35,7 +35,14 @@ G.SettingsUI = (() => {
   // ---------------- pantalla completa ----------------
   function canFull() { return !!(document.fullscreenEnabled || document.webkitFullscreenEnabled); }
   function isFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+  // iPhone: Safari no deja poner una web a pantalla completa (por eso a veces
+  // no salía la opción). Sí se puede abriéndola desde la pantalla de inicio.
+  const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = () => !!navigator.standalone || (window.matchMedia && matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches);
+  function iosTip() { return IOS && !canFull() && !standalone(); }
+  const IOS_TIP = 'En iPhone, Safari no deja poner las webs a pantalla completa. Pulsa Compartir y luego "Añadir a pantalla de inicio": abriendo el juego desde ese icono se juega a pantalla completa.';
   function toggleFull() {
+    if (!canFull()) { if (iosTip()) G.UI.toast(IOS_TIP, 9000); return; }
     if (isFull()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
     else {
       const el = document.documentElement;
@@ -77,7 +84,8 @@ G.SettingsUI = (() => {
         + toggle('calm', 'Menos sacudidas y destellos', 'La cámara tiembla menos y los fogonazos son suaves.')
         + toggle('fps', 'Mostrar FPS', 'Fotogramas por segundo, en la esquina de abajo.')
         + (canFull() ? `<div class="set-row"><div class="grow"><b>Pantalla completa</b><small>Sin barras del navegador.</small></div>
-             <button class="btn small" id="set-full">${isFull() ? 'Salir' : 'Activar'}</button></div>` : '');
+             <button class="btn small" id="set-full">${isFull() ? 'Salir' : 'Activar'}</button></div>`
+           : iosTip() ? `<div class="set-row"><div class="grow"><b>Pantalla completa</b><small>${esc(IOS_TIP)}</small></div></div>` : '');
     } else if (tab === 'ctl') {
       box.innerHTML = section('En móvil o tablet')
         + `<p class="sub">Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar. Se juega en horizontal.</p>`

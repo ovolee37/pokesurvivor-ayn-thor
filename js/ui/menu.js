@@ -43,6 +43,20 @@ G.MenuUI = (() => {
     $('menu-partner').classList.toggle('shiny', shiny);
     $('menu-partner-name').innerHTML = mon.name + (shiny ? ' ' + G.Icons.html('shiny', 24) : '');
     $('menu-partner-info').innerHTML = G.UI.typeChips(mon.types) + ' ' + G.UI.stars(mon.rarity);
+    // Normal / shiny a mano, aquí mismo (en el móvil no se encontraba en la ficha).
+    const seg = $('menu-shiny');
+    seg.classList.toggle('hidden', !G.DB.ownsShiny(mon.dex));
+    seg.lastChild.innerHTML = G.Icons.html('shiny', 12) + ' Shiny';
+    seg.querySelectorAll('button').forEach(b => {
+      b.classList.toggle('on', (b.dataset.v === '1') === shiny);
+      b.onclick = () => {
+        if ((b.dataset.v === '1') === shiny) return;
+        s.partnerShiny = b.dataset.v === '1';
+        G.DB.commit();
+        G.Audio.sfx('confirm');
+        open();
+      };
+    });
 
     const owned = Object.keys(s.owned).filter(d => G.DEX_BY[d]).length;
     const shinies = Object.keys(s.shiny || {}).length;
@@ -254,9 +268,12 @@ G.MenuUI = (() => {
           <b>${u.name}</b> <span style="color:var(--muted);font-size:13px">${u.unit}</span>
           <div class="pips">${Array.from({ length: u.max }, (_, i) => `<i class="${i < lvl ? 'on' : ''}"></i>`).join('')}</div>
         </div>
-        <button class="btn small ${maxed ? '' : 'gold'}" data-sfx="none" ${maxed || s.coins < cost ? 'disabled' : ''}>
-          ${maxed ? 'Máx.' : `<span class="coin"></span> ${cost}`}</button>`;
-      el.querySelector('button').onclick = () => {
+        <div class="upg-btns">
+          ${u.id === 'ban' && lvl > 0 ? `<button class="btn small" data-ban>Elegir (${banList().length}/${lvl})</button>` : ''}
+          <button class="btn small ${maxed ? '' : 'gold'}" data-buy data-sfx="none" ${maxed || s.coins < cost ? 'disabled' : ''}>
+          ${maxed ? 'Máx.' : `<span class="coin"></span> ${cost}`}</button></div>`;
+      if (u.id === 'ban' && lvl > 0) el.querySelector('[data-ban]').onclick = () => { banOpen = !banOpen; renderUpgrades(); };
+      el.querySelector('[data-buy]').onclick = () => {
         // Se vuelve a leer todo al pulsar (la partida puede haber cambiado desde que se dibujó).
         const sv = G.DB.save, lv = G.DB.upgradesOf(upgDex), now = lv[u.id] || 0;
         if (now >= u.max) { renderUpgrades(); return; }
@@ -271,7 +288,41 @@ G.MenuUI = (() => {
         renderUpgrades();
       };
       box.appendChild(el);
+      if (u.id === 'ban' && lvl > 0 && banOpen) box.appendChild(banPicker(lvl));
     }
+  }
+
+  // ---------------- veto: movimientos bloqueados ----------------
+  // Lista por Pokémon en save.pban[dex]; con N niveles de Veto, N movimientos.
+  let banOpen = false;
+  function banList() {
+    const s = G.DB.save;
+    s.pban = s.pban || {};
+    return s.pban[upgDex] || (s.pban[upgDex] = []);
+  }
+  function banPicker(max) {
+    const mon = G.DEX_BY[upgDex];
+    const start = G.startMoveOf(upgDex);
+    const ids = G.Moves.poolFor(mon).filter(id => id !== start)
+      .sort((a, b) => G.Moves.BY_ID[a].name.localeCompare(G.Moves.BY_ID[b].name, 'es'));
+    const list = banList();
+    const el = document.createElement('div');
+    el.className = 'panel ban-picker';
+    el.innerHTML = `<p class="sub" style="margin:0 0 8px">Toca los movimientos que no quieres que te salgan en las cartas (${list.length}/${max}). El movimiento de inicio no se puede vetar.</p>
+      <div class="ban-moves">${ids.map(id => { const d = G.Moves.BY_ID[id]; const on = list.includes(id);
+        return `<button class="chip ${on ? 'on ban' : ''}" data-id="${id}">${G.Icons.html('move:' + id, 16)} ${d.name}${on ? ' ' + G.Icons.html('ban', 14) : ''}</button>`; }).join('')}</div>`;
+    el.querySelectorAll('[data-id]').forEach(b => {
+      b.onclick = () => {
+        const l = banList(), id = b.dataset.id, i = l.indexOf(id);
+        if (i >= 0) l.splice(i, 1);
+        else if (l.length >= max) { G.UI.toast('Ya tienes ' + max + ' vetados: quita uno primero'); return; }
+        else l.push(id);
+        G.DB.commit();
+        G.Audio.sfx('select');
+        renderUpgrades();
+      };
+    });
+    return el;
   }
 
   return { init, open, GEN_NAMES };

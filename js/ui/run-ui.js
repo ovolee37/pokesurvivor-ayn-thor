@@ -5,10 +5,39 @@ G.RunUI = (() => {
 
   /** @param coop  en grupo: tras elegir, se queda esperando a los demás */
   function showLevelUp(level, list, cb, coop = false) {
-    offers = list; offerCb = cb; coopMode = coop;
+    offerCb = cb; coopMode = coop;
     $('lvl-num').textContent = level;
     $('lvl-wait').textContent = '';
     $('lvl-wait').classList.toggle('hidden', !coop);
+    $('cards').classList.remove('done');
+    renderCards(list);
+    $('lvl-reroll').onclick = reroll;
+    G.UI.show('scr-levelup');
+  }
+
+  /**
+   * Cambiar las cartas: 1 vez gratis por partida y 1 más por cada jefe
+   * derrotado (en grupo cuentan los jefes del equipo; cada uno tiene los suyos).
+   */
+  function rerollsLeft() {
+    const p = G.Game.player;
+    // 1 gratis + los comprados en Mejoras (antes, 1 más por cada jefe).
+    return p ? Math.max(0, 1 + (p.rerollBonus || 0) - (p.rerolls || 0)) : 0;
+  }
+
+  function reroll() {
+    if (!offers || rerollsLeft() <= 0) return;
+    const p = G.Game.player;
+    p.rerolls = (p.rerolls || 0) + 1;
+    G.Audio.sfx('select');
+    renderCards(G.LevelUp.offer(p));
+  }
+
+  function renderCards(list) {
+    offers = list;
+    const left = rerollsLeft();
+    $('lvl-rr-n').textContent = left;
+    $('lvl-reroll').classList.toggle('hidden', left <= 0);
     const box = $('cards');
     box.innerHTML = '';
     list.forEach((c, i) => {
@@ -28,13 +57,13 @@ G.RunUI = (() => {
       el.onclick = () => pick(i);
       box.appendChild(el);
     });
-    G.UI.show('scr-levelup');
   }
 
   function pick(i) {
     if (!offers || !offers[i]) return;
     const c = offers[i], cb = offerCb;
     offers = null; offerCb = null;
+    $('lvl-reroll').classList.add('hidden');
     if (coopMode) {
       // Se queda la carta elegida a la vista mientras eligen los demás.
       $('cards').querySelectorAll('.card').forEach((el, j) => el.classList.toggle('picked', j === i));
@@ -203,5 +232,5 @@ G.RunUI = (() => {
     $('btn-quit').onclick = onQuit;
   }
 
-  return { showLevelUp, showItemChoice, showBond, pickBond, bondBack, pick, setWaiting, closeLevelUp, showOver, wirePause, showPause };
+  return { showLevelUp, reroll, showItemChoice, showBond, pickBond, bondBack, pick, setWaiting, closeLevelUp, showOver, wirePause, showPause };
 })();

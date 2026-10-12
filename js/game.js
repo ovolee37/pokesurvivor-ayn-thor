@@ -68,6 +68,8 @@ G.Game = (() => {
   }
 
   /** Pausa/continúa (tecla Esc o P, o el botón de pausa del móvil). */
+  let holdBy = [];                   // grupo: quién está eligiendo fusión (todo parado)
+
   function togglePause() {
     // En grupo la pausa no para el juego (los demás siguen jugando).
     if (G.Coop.active) {
@@ -84,6 +86,7 @@ G.Game = (() => {
 
   /** @param coop  { seed, host, members } para una partida en grupo */
   function startRun(coop = null) {
+    holdBy = []; awayBy = null;
     const save = G.DB.save;
     const mon = G.DEX_BY[save.partner];
     const perks = G.Upgrades.perks(G.DB.upgradesOf(mon.dex));
@@ -110,9 +113,11 @@ G.Game = (() => {
     banked = { t1: 0, t10: 0 };
     caught = [];
     pl.addMove(G.startMoveOf(mon.dex));
+    // Mejora "Veto": movimientos que no quieres que te salgan.
+    pl.banned = new Set((save.pban && save.pban[mon.dex] || []).slice(0, perks.bans));
     // Mejora "Repertorio": un segundo movimiento de ataque al azar.
     if (perks.startMoves >= 2) {
-      const pool = G.Moves.poolFor(mon).filter(id => !pl.hasMove(id) && G.Moves.BY_ID[id].kind !== 'buff');
+      const pool = G.Moves.poolFor(mon).filter(id => !pl.hasMove(id) && !pl.banned.has(id) && G.Moves.BY_ID[id].kind !== 'buff');
       if (pool.length) pl.addMove(G.U.pick(pool));
       pl.setActive(0);
     }
@@ -209,8 +214,35 @@ G.Game = (() => {
     },
     lost(msg) { G.UI.toast(msg, 3600); endRun(false); },
     item(id) { offerItem(id); },
-    mateLeft() {}
+    mateLeft() {},
+    /** Grupo: quién está eligiendo fusión. Mientras haya alguien, todo parado. */
+    hold(names) {
+      holdBy = names || [];
+      const mine = G.UI.isOpen('scr-bond');
+      if (holdBy.length) {
+        if (state === 'playing') state = 'held';
+        if (pl && pl.bonds > 0) offerBond(true);      // si tú también tienes vínculo, eliges a la vez
+        const others = holdBy.filter(n => n !== (G.Social.me && G.Social.me.name) && n !== 'Tú');
+        if (!mine && others.length) G.Spawner.say('Pausa: ' + others.join(', ') + ' ' + (others.length > 1 ? 'están eligiendo…' : 'está eligiendo…'), 999, true);
+      } else {
+        if (state === 'held' && !awayBy) state = 'playing';
+        G.Spawner.say(awayBy ? awayText() : '', awayBy ? 999 : 0, true);
+      }
+    },
+    /** Grupo (invitado): el anfitrión se ha ido de la pestaña o no responde: todo parado. */
+    away(name) {
+      awayBy = name || null;
+      if (awayBy) {
+        if (state === 'playing') state = 'held';
+        G.Spawner.say(awayText(), 999, true);
+      } else if (!holdBy.length) {
+        if (state === 'held') state = 'playing';
+        G.Spawner.say('', 0, true);
+      }
+    }
   };
+  let awayBy = null;
+  const awayText = () => 'Pausa: esperando a ' + awayBy + ' (anfitrión)…';
 
   /** Has llevado a casa a un Pokémon perdido y se une a ti (events.js). */
   G.onRescue = (dex, name) => {
@@ -320,15 +352,16 @@ G.Game = (() => {
    * @param quiet  no avisar si todavía no se puede
    */
   function offerBond(quiet = false) {
-    if (!pl || pl.bonds <= 0 || pl.dead || state !== 'playing' || G.Rift.inArena) return;
+    if (!pl || pl.bonds <= 0 || pl.dead || (state !== 'playing' && state !== 'held') || G.Rift.inArena) return;
     if (['scr-bond', 'scr-pause', 'scr-item', 'scr-levelup'].some(G.UI.isOpen)) return;
     const opt = pl.bondOptions();
     if (!opt) {
       if (!quiet) G.Spawner.say('Guardas el vínculo: aprende otro movimiento para usarlo', 3, true);
       return;
     }
-    // En solitario se para el juego; en grupo sigue (como con los objetos).
-    if (!G.Coop.active) state = 'choice';
+    // Se para el juego; en grupo, para todos hasta que cada uno elige (G.Coop.holdStart).
+    state = 'choice';
+    if (G.Coop.active) G.Coop.holdStart();
     G.Audio.sfx('levelup');
     G.RunUI.showBond(opt, picked => {
       const group = pl.fuse(picked, opt.group);
@@ -336,7 +369,8 @@ G.Game = (() => {
       G.FX.ring(pl.x, pl.y, 8, 130, '#ff8ad8', 0.8, 6);
       G.FX.burst(pl.x, pl.y - pl.bodyH * 0.5, '#ffb3e6', 40, 240);
       G.Spawner.say('¡Vínculo! ' + group.length + ' movimientos a la vez', 2.6, true);
-      if (state === 'choice') state = 'playing';
+      if (state === 'choice') state = holdBy.length ? 'held' : 'playing';
+      if (G.Coop.active) G.Coop.holdEnd();
     });
   }
 
@@ -347,18 +381,26 @@ G.Game = (() => {
   /** Has cogido un objeto: si no llevas ninguno te lo pones; si no, eliges. */
   function offerItem(id) {
     if (!pl || !G.Items.BY[id]) return;
+    let mine = false;            // esta elección es la que ha parado el juego
     const take = got => {
       if (got !== pl.item) {
         pl.equip(got);
         G.Spawner.say('¡Llevas ' + G.Items.BY[got].name + '!', 2.6, true);
         G.Progress.event('item', { id: got });
       }
-      if (state === 'choice') state = 'playing';
+      if (!mine) return;
+      if (state === 'choice') state = holdBy.length ? 'held' : 'playing';
+      if (G.Coop.active) G.Coop.holdEnd();
     };
     if (!pl.item) { take(id); return; }
     if (pl.item === id) { G.Spawner.say('Ya llevas ' + G.Items.BY[id].name, 2, true); return; }
-    // En solitario se para el juego; en grupo sigue (como la pausa).
-    if (!G.Coop.active) state = 'choice';
+    // Se para el juego mientras eliges; en grupo, para todos (como con las
+    // fusiones). Antes en grupo seguía y te pegaban mientras elegías.
+    if (state === 'playing' || state === 'held') {
+      mine = true;
+      state = 'choice';
+      if (G.Coop.active) G.Coop.holdStart();
+    }
     G.RunUI.showItemChoice(pl.item, id, take);
   }
 
@@ -421,6 +463,7 @@ G.Game = (() => {
       for (let i = 0; i < 3; i++) {
         if (G.Input.tap('digit' + (i + 1)) || G.Input.tap('numpad' + (i + 1))) G.RunUI.pick(i);
       }
+      if (G.Input.tap('keyr')) G.RunUI.reroll();
       return;
     }
     if (G.UI.isOpen('scr-bond')) {
@@ -459,13 +502,23 @@ G.Game = (() => {
   // El siguiente fotograma se pide ANTES de nada: si algo falla a mitad, el
   // juego sigue (antes se quedaba congelado para siempre y había que recargar;
   // así se perdió una partida enorme al abrirse una grieta).
-  let loopErrs = 0;
+  // Si falla fotograma tras fotograma (el juego ya no avanza ni se ve), la
+  // partida se da por terminada a los ~3 s y se guarda: tiempo, derrotados,
+  // récords y ranking. Mejor eso que una pantalla negra y perderlo todo.
+  let loopErrs = 0, errRun = 0;
   function loop(ts) {
     requestAnimationFrame(loop);
-    try { frame(ts); }
+    try { frame(ts); errRun = 0; }
     catch (e) {
       if (loopErrs++ < 5) console.error('[Game] fallo en un fotograma:', e);
       G.Input.endFrame();
+      if (++errRun === 180 && pl && state !== 'ui' && state !== 'over') {
+        try {
+          G.UI.hideAll();
+          quitRun();
+          G.UI.toast('El juego ha fallado: tu partida se ha guardado hasta aquí', 5000);
+        } catch (e2) { console.error('[Game] no se pudo cerrar la partida:', e2); }
+      }
     }
   }
 
@@ -752,7 +805,7 @@ G.Flow = {
   boot() {
     G.UI.initChrome();
     G.LoginUI.init(); G.TestUI.init(); G.MenuUI.init(); G.GachaUI.init();
-    G.SocialUI.init(); G.RankingUI.init(); G.GoalsUI.init(); G.ProfileUI.init(); G.SettingsUI.init(); G.SupportUI.init();
+    G.SocialUI.init(); G.RankingUI.init(); G.GoalsUI.init(); G.ProfileUI.init(); G.SettingsUI.init(); G.SupportUI.init(); G.NewsUI.init();
     // Tu nombre arriba a la derecha abre tu perfil.
     document.getElementById('user-pill').onclick = () => G.GoalsUI.open('profile');
     G.Audio.music('village');     // suena tras el primer clic (lo exige el navegador)

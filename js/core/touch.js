@@ -22,6 +22,13 @@ G.Touch = (() => {
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', up);
     cv.addEventListener('contextmenu', e => e.preventDefault());
+    // iPhone: la pulsación larga sobre el juego abría la lupa y el menú de
+    // "Copiar / Seleccionar todo". Cortar el toque aquí lo evita (los eventos
+    // pointer, que son los que usa el joystick, siguen llegando).
+    cv.addEventListener('touchstart', e => { if (e.cancelable) e.preventDefault(); }, { passive: false });
+    document.addEventListener('selectstart', e => {
+      if (!e.target.closest || !e.target.closest('input, textarea, [contenteditable]')) e.preventDefault();
+    });
     addEventListener('blur', reset);
     document.addEventListener('visibilitychange', reset);
   }

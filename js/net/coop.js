@@ -18,9 +18,10 @@
 G.Coop = (() => {
   const ANIMS = ['Idle', 'Walk', 'Attack', 'Shoot', 'Charge', 'Hurt', 'Faint'];
   const COLORS = ['#ffcb3d', '#5fc8ff', '#7ee07a', '#ff8ad8'];
-  // Mensajes por segundo: 15 directo, 7 por el TURN de Cloudflare (se paga por
-  // GB) y 3 por el relé de la Realtime Database (1 $ el GB: sólo si todo lo demás falla).
-  const RATE_FAST = 1 / 15, RATE_TURN = 1 / 7, RATE_SLOW = 1 / 3;
+  // Mensajes por segundo: 15 directo, 4 por el TURN de Cloudflare (se paga por
+  // GB: era 7 y se iban unos 110 GB al día, el 12-10-2026) y 3 por el relé de
+  // la Realtime Database (1 $ el GB: sólo si todo lo demás falla).
+  const RATE_FAST = 1 / 15, RATE_TURN = 1 / 4, RATE_SLOW = 1 / 3;
   const rateFor = u => (G.Net.slow(u) ? RATE_SLOW : G.Net.viaTurn(u) ? RATE_TURN : RATE_FAST);
   const NEAR = 950;                     // radio de enemigos que se mandan a cada uno
 
@@ -32,6 +33,12 @@ G.Coop = (() => {
   let hitFrom = null;                   // invitado cuyo golpe se está aplicando (no repetirle el número)
   let api = {};                         // callbacks del juego (game.js)
   let waiting = new Set();              // subida de nivel: quién falta por elegir
+  let holds = new Set();                // quién está eligiendo una fusión (la partida se para para todos)
+  // El anfitrión mueve a los enemigos: si cambia de pestaña (o se le congela),
+  // todo se para para todos. Antes los enemigos se quedaban quietos y los demás
+  // seguían jugando con una ventaja enorme.
+  let hostAway = false, stalled = false, lastHostAt = 0;
+  const STALL_MS = 2500;
   let members = [];
 
   // ---------------- escalado de dificultad ----------------
@@ -54,7 +61,8 @@ G.Coop = (() => {
     api = cb;
     members = cfg.members;
     mates.clear();
-    outEv = []; flushT = 0; waiting = new Set();
+    outEv = []; flushT = 0; waiting = new Set(); holds = new Set();
+    hostAway = false; stalled = false; lastHostAt = performance.now();
     cfg.members.forEach((m, i) => {
       const x = (i - (cfg.members.length - 1) / 2) * 34, y = 0;
       if (m.uid === me) { pl.x = x; pl.y = y; pl.uid = me; pl.coopHost = host; pl.tagColor = COLORS[i]; return; }
@@ -70,7 +78,7 @@ G.Coop = (() => {
 
   function end() {
     active = false; host = false; local = null;
-    mates.clear(); outEv = []; waiting = new Set();
+    mates.clear(); outEv = []; waiting = new Set(); holds = new Set();
   }
 
   /** Te vas de la partida (los demás siguen). */
@@ -186,6 +194,7 @@ G.Coop = (() => {
         G.Net.send(m.uid, hostFrame(m));
       }
     } else {
+      if (!stalled && performance.now() - lastHostAt > STALL_MS) { stalled = true; updateAway(); }
       flushT -= dt;
       if (flushT <= 0) {
         flushT = rateFor(hostUid);
@@ -217,6 +226,7 @@ G.Coop = (() => {
     G.Projectiles.clearOrbs(m.pl);
     G.Spawner.say(m.name + ' ha dejado la partida', 2.6);
     if (waiting.has(u)) picked(u);
+    if (holds.has(u)) holdOff(u);
     if (api.mateLeft) api.mateLeft(m);
   }
 
@@ -253,6 +263,8 @@ G.Coop = (() => {
           emit(['pb', ev[1], ev[2]], from);
           break;
         case 'lp': picked(from); break;
+        case 'hs': holdOn(from); break;
+        case 'he': holdOff(from); break;
         case 're': G.Rift.enterRequest(); break;
         case 'bye': mateGone(from); break;
       }
@@ -261,7 +273,20 @@ G.Coop = (() => {
 
   // --- en el invitado ---
 
+  /** Invitado: se para (o sigue) según si el anfitrión está. */
+  function updateAway() { if (api.away) api.away(hostAway || stalled ? nameOf(hostUid) : null); }
+
+  // Anfitrión: al irse de la pestaña avisa a todos al momento (después ya no
+  // podrá mandar nada) y al volver, que sigue.
+  document.addEventListener('visibilitychange', () => {
+    if (!active || !host) return;
+    emit(['ha', document.hidden ? 1 : 0]);
+    flushAll();
+  });
+
   function onHostFrame(msg) {
+    lastHostAt = performance.now();
+    if (stalled) { stalled = false; updateAway(); }
     for (const ev of msg.ev || []) applyHostEvent(ev);
     api.syncTeam({ time: msg.t, level: msg.lv, xp: msg.xp, xpNext: msg.xn, kills: msg.ki, bosses: msg.bo, coins: msg.co,
                    t1: (msg.tk || [])[0], t10: (msg.tk || [])[1] });
@@ -313,6 +338,8 @@ G.Coop = (() => {
       case 'lu': api.levelStart(ev[1]); break;
       case 'lw': api.waiting(ev[1]); break;
       case 'lr': api.resume(); break;
+      case 'hp': api.hold && api.hold(ev[1]); break;
+      case 'ha': hostAway = !!ev[1]; updateAway(); break;
       case 'sh': api.shiny(ev[1]); break;
       case 'ov': { const cb = api.over; const d = ev[1]; end(); cb(d); break; }
       case 'rift': case 'riftx': case 'arena': case 'aw': case 'al': G.Rift.onEvent(ev); break;
@@ -393,6 +420,30 @@ G.Coop = (() => {
     api.resume();
   }
 
+  // ---------------- fusiones: pausa para todos ----------------
+  // Mientras alguien elige qué movimientos fusiona (vínculo de un legendario),
+  // la partida se para para todos, como con las cartas de nivel.
+
+  function holdNames() { return [...holds].map(nameOf); }
+
+  /** Anfitrión: `u` empieza a elegir. */
+  function holdOn(u) {
+    holds.add(u);
+    emit(['hp', holdNames()]); flushAll();
+    api.hold && api.hold(holdNames());
+  }
+
+  /** Anfitrión: `u` ha terminado (o se ha ido). */
+  function holdOff(u) {
+    if (!holds.delete(u)) return;
+    emit(['hp', holdNames()]); flushAll();
+    api.hold && api.hold(holdNames());
+  }
+
+  /** Tú empiezas / terminas de elegir fusión. */
+  function holdStart() { if (host) holdOn(me); else { outEv.push(['hs']); flushClient(true); } }
+  function holdEnd() { if (host) holdOff(me); else { outEv.push(['he']); flushClient(true); } }
+
   /** Has elegido tu carta. */
   function localPicked() {
     if (host) picked(me);
@@ -409,7 +460,7 @@ G.Coop = (() => {
   return {
     ANIMS, COLORS, begin, end, leave, tick, players, puppets, xpFactor, scaleRate, scaleHp,
     cast, hit, status, hurtShown, enemyAdded, enemyGone, enemyShot, pickupAdded, pickupGone, say,
-    propBroken, collected, shinyCaught, levelStart, localPicked, over,
+    propBroken, collected, shinyCaught, levelStart, localPicked, over, holdStart, holdEnd,
     /** Anfitrión: evento para todos. Invitado: evento para el anfitrión. */
     broadcast(ev) { emit(ev); },
     toHost(ev) { if (active && !host) { outEv.push(ev); flushClient(true); } },

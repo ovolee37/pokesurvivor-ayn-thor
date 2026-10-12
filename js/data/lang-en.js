@@ -284,8 +284,8 @@ G.I18n.add({
   'Tiradas sin legendaria en {x}: {x} / {x}': 'Pulls without a legendary in {x}: {x} / {x}',
   '· A las {x} tiradas sin Legendaria en un banner, la siguiente lo es.': '· After {x} pulls without a Legendary on a banner, the next one is.',
   '· La tirada ×10 garantiza al menos una Épica.': '· The ×10 pull guarantees at least one Epic.',
-  '· Los repetidos dan Pokémonedas (los shiny repetidos, el triple).': '· Duplicates give PokéCoins (shiny duplicates, triple).',
-  '· Los tickets se consiguen jugando: algunos Pokémon los sueltan al caer, y los jefes y los legendarios de las grietas dan tickets ×10.': '· Tickets are earned by playing: some Pokémon drop them when defeated, and bosses and rift legendaries give ×10 tickets.',
+  '· Los repetidos dan Pokémonedas. Los shiny no se repiten.': '· Duplicates give PokéCoins. Shinies never repeat.',
+  '· Los tickets se consiguen jugando: algunos Pokémon los sueltan al caer, y los jefes y los legendarios de las grietas, a veces, tickets ×10.': '· Tickets are earned by playing: some Pokémon drop them when defeated, and bosses and rift legendaries sometimes give ×10 tickets.',
   'Tirar ×1 ·': 'Pull ×1 ·', 'Tirar ×10 ·': 'Pull ×10 ·', 'tickets ×10': '×10 tickets', 'tickets y {x}': 'tickets and {x}',
   'No tienes tickets suficientes: consíguelos jugando': 'Not enough tickets: earn them by playing', '¡NUEVO!': 'NEW!', '¡SHINY NUEVO!': 'NEW SHINY!',
   'Repetido ·': 'Duplicate ·', '· {x} {x} shiny': '· {x} {x} shiny', '{x} Shiny': '{x} Shiny', 'Clic para acelerar': 'Click to speed up',
@@ -410,6 +410,8 @@ G.I18n.add({
   'Guardado en la nube': 'Saved in the cloud', 'Guardando…': 'Saving…', 'Pendiente de subir (se sube al salir del juego)': 'Waiting to upload (uploads when you leave the game)',
   'Sin conexión: se subirá al volver': 'Offline: it will upload when you\'re back', 'Guardado sólo en este navegador': 'Saved only in this browser', 'Invitado: no se guarda': 'Guest: not saved',
   'Se borrarán tu cuenta y toda tu partida, para siempre. ¿Seguro?': 'Your account and all your progress will be deleted forever. Are you sure?',
+  'Cambiar opciones (': 'Reroll (',
+  'Pausa: {x} está eligiendo…': 'Paused: {x} is choosing…', 'Pausa: {x} están eligiendo…': 'Paused: {x} are choosing…',
   'Cuenta borrada': 'Account deleted', 'Borrar para siempre': 'Delete forever',
   'Se borrarán tu cuenta y toda tu partida, para siempre. Para confirmarlo, escribe tu contraseña.': 'Your account and all your progress will be deleted forever. To confirm, type your password.',
   'Escribe tu contraseña.': 'Type your password.', 'Inicia sesión para poder borrar tu cuenta.': 'Log in to be able to delete your account.',
@@ -514,5 +516,17 @@ G.I18n.add({
   '¿Te está gustando PokéSurvivor? Lo hago yo solo y los servidores cuestan dinero. Si quieres, puedes ayudarme a mantenerlo en línea.': "Enjoying PokéSurvivor? I make it on my own and the servers cost money. If you'd like, you can help keep it online.",
   'Apoyar en Ko-fi': 'Support on Ko-fi', 'Entrar con Google (si ya tienes cuenta)': 'Sign in with Google (if you already have an account)',
   'Este mes se han llenado las plazas de cuentas nuevas: vuelven el 1 de {x}. Si ya tienes cuenta, entra normal. Si no, juega como invitado.': "New accounts are full for this month: they reopen on {x} 1. If you already have an account, sign in as usual. If not, play as a guest.",
-  'Este mes ya no quedan plazas para cuentas nuevas (vuelven el 1 de {x}). Mientras, puedes jugar como invitado.': 'There are no new account slots left this month (they reopen on {x} 1). Meanwhile, you can play as a guest.'
+  'Este mes ya no quedan plazas para cuentas nuevas (vuelven el 1 de {x}). Mientras, puedes jugar como invitado.': 'There are no new account slots left this month (they reopen on {x} 1). Meanwhile, you can play as a guest.',
+  'El juego ha fallado: tu partida se ha guardado hasta aquí': 'The game crashed: your run has been saved up to this point',
+  'Pausa: esperando a {x} (anfitrión)…': 'Paused: waiting for {x} (host)…',
+  'Novedades': "What's new",
+  'Golpe Crítico': 'Critical Hit', '+3% de críticos (x1,5 de daño)': '+3% critical chance (x1.5 damage)',
+  'Cambio de cartas': 'Card reroll', '+1 cambio de cartas de nivel por run': '+1 level-up card reroll per run',
+  'Veto': 'Ban', 'Bloquea 1 movimiento: no te sale en las cartas': 'Ban 1 move: it never shows up in your cards',
+  'Elegir ({x})': 'Choose ({x})',
+  'Toca los movimientos que no quieres que te salgan en las cartas ({x}). El movimiento de inicio no se puede vetar.':
+    'Tap the moves you do not want in your cards ({x}). The starting move cannot be banned.',
+  'Ya tienes {x} vetados: quita uno primero': 'You already have {x} banned: remove one first',
+  'En iPhone, Safari no deja poner las webs a pantalla completa. Pulsa Compartir y luego "Añadir a pantalla de inicio": abriendo el juego desde ese icono se juega a pantalla completa.':
+    'On iPhone, Safari does not let websites go fullscreen. Tap Share and then "Add to Home Screen": opening the game from that icon plays it fullscreen.'
 });

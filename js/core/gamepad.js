@@ -7,6 +7,11 @@
  *   press, A presses, B goes back, L1/R1 switch tabs.
  * - It switches between the two on its own, based on the game state.
  * - Select + Start for 2 s: debug panel (id, mapping, buttons, axes).
+ * - Manual aim: tilting the right stick (or holding the left mouse button on
+ *   the game on PC) fires the attacks in that direction; releasing it goes back
+ *   to the usual auto-aim at the nearest enemy. player.js reads it through
+ *   aimAngle() / targetInCone(). Based on the fork by Iván Freire
+ *   (github.com/IvanFreireDacoba/pokesurvivor).
  *
  * Buttons go by POSITION in the standard layout (0 = bottom, 1 = right,
  * 2 = left, 3 = top), not by the printed letter.
@@ -20,6 +25,9 @@ G.Gamepad = (() => {
     repeatRate: 0.11,         // s between repeats
     layerGrace: 0.25,         // s during which A/B are ignored after a new screen opens
     axes: { x: 0, y: 1 },     // left stick
+    aimAxes: { x: 2, y: 3 },  // right stick (manual aim)
+    aimDeadzone: 0.35,        // the right stick must be tilted this far to take over the aim
+    aimCone: 0.61,            // rad (±35°): the target is the nearest enemy in this cone
     dpad: { up: 12, down: 13, left: 14, right: 15 },
     // In game: button index -> action
     game: { 0: 'move1', 1: 'move2', 2: 'move3', 3: 'move4', 4: 'prev', 5: 'next', 9: 'pause', 8: 'settings' },
@@ -44,7 +52,8 @@ G.Gamepad = (() => {
 
   const N = 17;                          // standard buttons (0..16)
   let cur = new Array(N).fill(false), prev = new Array(N).fill(false);
-  let stick = [0, 0], dpadVec = [0, 0];
+  let stick = [0, 0], dpadVec = [0, 0], aimStick = null;
+  let mouseAim = false;
   let pads = [];                         // connected controllers (for the panel)
   let used = false;                      // has the controller been used since the last mouse/touch/keyboard input?
   let unlocked = false;
@@ -69,6 +78,7 @@ G.Gamepad = (() => {
     const b = new Array(N).fill(false);
     const raw = i => { const x = p.buttons[i]; return !!x && (x.pressed || x.value > 0.5); };
     let sx = p.axes[CONFIG.axes.x] || 0, sy = p.axes[CONFIG.axes.y] || 0;
+    const rx = p.axes[CONFIG.aimAxes.x] || 0, ry = p.axes[CONFIG.aimAxes.y] || 0;
     if (p.mapping === 'standard') {
       for (let i = 0; i < N; i++) b[i] = raw(i);
     } else {
@@ -82,7 +92,7 @@ G.Gamepad = (() => {
       if (dy < 0) b[12] = true; if (dy > 0) b[13] = true;
       if (dx < 0) b[14] = true; if (dx > 0) b[15] = true;
     }
-    return { b, sx, sy };
+    return { b, sx, sy, rx, ry };
   }
 
   function poll() {
@@ -90,7 +100,7 @@ G.Gamepad = (() => {
     let list = [];
     try { list = navigator.getGamepads ? navigator.getGamepads() : []; } catch (e) { list = []; }
     const b = new Array(N).fill(false);
-    let sx = 0, sy = 0;
+    let sx = 0, sy = 0, rx = 0, ry = 0;
     for (const p of list) {
       if (!p || !p.connected) continue;
       pads.push(p);
@@ -98,6 +108,7 @@ G.Gamepad = (() => {
       for (let i = 0; i < N; i++) b[i] = b[i] || r.b[i];
       // With several controllers, the most tilted stick wins.
       if (Math.hypot(r.sx, r.sy) > Math.hypot(sx, sy)) { sx = r.sx; sy = r.sy; }
+      if (Math.hypot(r.rx, r.ry) > Math.hypot(rx, ry)) { rx = r.rx; ry = r.ry; }
     }
     prev = cur; cur = b;
     // Stick: radial dead zone, strength rescaled from the edge of the zone.
@@ -107,7 +118,8 @@ G.Gamepad = (() => {
     const d = CONFIG.dpad;
     const dx = (b[d.right] ? 1 : 0) - (b[d.left] ? 1 : 0), dy = (b[d.down] ? 1 : 0) - (b[d.up] ? 1 : 0);
     dpadVec = G.U.norm(dx, dy);
-    return b.some(Boolean) || m >= dz;
+    aimStick = Math.hypot(rx, ry) >= CONFIG.aimDeadzone ? [rx, ry] : null;
+    return b.some(Boolean) || m >= dz || !!aimStick;
   }
 
   const pressed = i => cur[i] && !prev[i];
@@ -119,6 +131,35 @@ G.Gamepad = (() => {
     if (dpadVec[0] || dpadVec[1]) return dpadVec;
     return stick;
   }
+
+  /** Manual aim angle (right stick, or mouse held on the game), or null for auto-aim. */
+  function aimAngle(pl) {
+    if (aimStick) return Math.atan2(aimStick[1], aimStick[0]);
+    if (mouseAim && G.Input && G.Camera && G.Camera.scale) {
+      const ms = G.Input.mouse();
+      const wx = G.Camera.left() + ms.x / G.Camera.scale, wy = G.Camera.top() + ms.y / G.Camera.scale;
+      return Math.atan2(wy - (pl.y - (G.LIFT || 0)), wx - pl.x);
+    }
+    return null;
+  }
+
+  /** Target in the aimed direction: the nearest enemy in range inside the cone. */
+  function targetInCone(list, pl, ang, maxDist = 520) {
+    let best = null, bd = Infinity;
+    for (const e of list) {
+      if (e.dead) continue;
+      const dx = e.x - pl.x, dy = e.y - pl.y, d = Math.hypot(dx, dy);
+      if (d > maxDist || d >= bd) continue;
+      const da = Math.abs(((Math.atan2(dy, dx) - ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+      if (da <= CONFIG.aimCone) { bd = d; best = e; }
+    }
+    return best;
+  }
+
+  // Mouse on PC: holding the left button on the game aims at the cursor.
+  addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button === 0 && e.target.tagName === 'CANVAS') mouseAim = true; });
+  addEventListener('pointerup', e => { if (e.pointerType === 'mouse') mouseAim = false; });
+  addEventListener('blur', () => { mouseAim = false; });
 
   // ---------------- controller / touch mode ----------------
 
@@ -377,7 +418,7 @@ G.Gamepad = (() => {
     if (layer !== layerEl) { layerEl = layer; layerT = 0; clearFocus(); focusKey = null; navDir = null; }
     else layerT += dt;
     const any = cur.some((v, i) => v && !prev[i]);
-    if (any || (stick[0] || stick[1]) && !used) markUsed();
+    if (any || (stick[0] || stick[1] || aimStick) && !used) markUsed();
     if (!used && !active) { if (dbg) drawDebug(layer, false); return; }
     // "Tap to start": any button works.
     if (layer && layer.id === 'tap-start') { if (any) layer.click(); return; }
@@ -471,5 +512,5 @@ G.Gamepad = (() => {
     back(layer);
   }
 
-  return { config: CONFIG, vector, toggleDebug, back: backFromSystem, get active() { return used; }, get pads() { return pads; } };
+  return { config: CONFIG, vector, aimAngle, targetInCone, toggleDebug, back: backFromSystem, get active() { return used; }, get pads() { return pads; } };
 })();

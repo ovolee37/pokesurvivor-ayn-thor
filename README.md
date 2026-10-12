@@ -111,7 +111,7 @@ index.html              pantallas + orden de carga
 css/style.css           interfaz estilo Mundo Misterioso
 assets/pokemon/{dex}/   hojas de sprites PMD (Idle, Walk, Attack, Shoot, Charge, Hurt, Faint)
 assets/pokemon/{dex}/s/ las mismas en versión shiny
-assets/fonts/           Pixelify Sans (OFL)
+assets/fonts/           Pixelify Sans (OFL) y su versión con números redibujados (tools/make_font.py)
 js/
   net/      social (apodo, amigos, salas), net (WebRTC + relé),
             coop (partida en grupo), ranking

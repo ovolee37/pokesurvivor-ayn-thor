@@ -98,8 +98,40 @@ G.DB = (() => {
       s.pupgDone = true;
     }
     s.tickets = Object.assign({ t1: 0, t10: 0 }, s.tickets);
+    sanitize(s);
     s.v = VERSION;
     return s;
+  }
+
+  /**
+   * Quita lo imposible de una partida editada a mano (la copia del navegador
+   * se puede tocar): números negativos o raros, mejoras por encima del
+   * máximo y Pokémon que no existen. Lo que sí sea posible lo frena el
+   * servidor (firestore.rules, saves).
+   */
+  function sanitize(s) {
+    const n = v => (Number.isFinite(+v) && +v > 0 ? Math.floor(+v) : 0);
+    s.coins = n(s.coins);
+    s.tickets.t1 = n(s.tickets.t1);
+    s.tickets.t10 = n(s.tickets.t10);
+    if (G.DEX_BY) for (const coll of ['owned', 'shiny']) {
+      for (const d of Object.keys(s[coll] || {})) if (!G.DEX_BY[d]) delete s[coll][d];
+    }
+    // Veto: listas de movimientos que existen, sin repetir, como mucho 3.
+    if (s.pban && typeof s.pban === 'object') {
+      for (const d of Object.keys(s.pban)) {
+        const l = Array.isArray(s.pban[d]) ? s.pban[d] : [];
+        s.pban[d] = [...new Set(l.filter(id => typeof id === 'string' && (!G.Moves || G.Moves.BY_ID[id])))].slice(0, 3);
+      }
+    } else s.pban = {};
+    if (G.Upgrades) for (const d of Object.keys(s.pupg || {})) {
+      const u = s.pupg[d];
+      if (!u || typeof u !== 'object') { delete s.pupg[d]; continue; }
+      for (const id of Object.keys(u)) {
+        if (!G.Upgrades.BY[id]) delete u[id];
+        else u[id] = Math.min(G.Upgrades.BY[id].max, n(u[id]));
+      }
+    }
   }
 
   /**
@@ -259,7 +291,7 @@ G.DB = (() => {
   // eran decenas de miles de escrituras por hora); lo que cuesta algo
   // (gacha, mejoras), a los 30 s. La copia local se guarda siempre al momento (y se fusiona con la
   // nube al volver a entrar), y al ocultar o cerrar la pestaña se sube lo pendiente.
-  const PUSH_GAP = 30 * 60 * 1000, PUSH_GAP_URGENT = 30 * 1000;
+  const PUSH_GAP = 30 * 60 * 1000, PUSH_GAP_URGENT = 30 * 1000, HIDE_GAP = 10 * 60 * 1000;
   let syncState = 'local';           // 'ok' | 'syncing' | 'pending' | 'offline' | 'local'
   const listeners = new Set();
 
@@ -296,8 +328,14 @@ G.DB = (() => {
     await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
     auth.languageCode = 'es';
     addEventListener('online', () => { if (pending) pushNow(); });
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && pending) pushNow(); });
-    addEventListener('pagehide', () => { if (pending) pushNow(); });
+    // Al salir de la pestaña o cerrarla se sube lo pendiente, pero no más de una
+    // vez cada 10 min: la gente cambia de pestaña a menudo y cada partida se
+    // subía cada ~9 min en vez de cada 30 (12-10-2026, el mayor gasto de
+    // Firebase). Lo que no se sube sigue en la copia de este navegador y se
+    // sube al volver a entrar.
+    const hideFlush = () => { if (pending && Date.now() - lastPush > HIDE_GAP) pushNow(); };
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') hideFlush(); });
+    addEventListener('pagehide', hideFlush);
     return true;
   }
 
@@ -340,7 +378,10 @@ G.DB = (() => {
     // Sólo se sube si hay algo que la nube no tenga (cuenta nueva, progreso de
     // este ordenador sin subir...), y SIN esperar: antes el menú no salía hasta
     // terminar la subida, y con Firebase lento se tardaba hasta 9 s en entrar.
-    const same = remote && JSON.stringify(plain(migrate(remote))) === JSON.stringify(plain(save));
+    // (Comparar el texto entero daba "distinto" casi siempre y se subía en cada
+    // entrada: ahora sólo si esta copia es más nueva que la de la nube.)
+    const same = remote && !opts.legacy && (!cached || (cached.updated || 0) <= (remote.updated || 0));
+    lastPush = Date.now();       // la primera compra o ticket no sube al momento: espera como las demás
     if (!online) { pending = true; setSync('offline'); scheduleRetry(); }
     else if (same) setSync('ok');
     else pushNow();
@@ -378,7 +419,7 @@ G.DB = (() => {
     const timeout = new Promise((_, rej) => setTimeout(() => rej({ code: 'unavailable' }), 12000));
     let failed = false;
     pushing = Promise.race([tr, timeout]).then(() => {
-      fails = 0;
+      fails = 0; rejects = 0;
       // Se FUSIONA con lo de ahora (no se sobrescribe): si has cambiado algo
       // mientras se subía (elegir compañero, una compra...), no se pierde.
       if (merged && save) { applyInPlace(merge(plain(save), merged)); write(K_CLOUD + uid, save); }
@@ -386,6 +427,10 @@ G.DB = (() => {
       if (G.UI && G.UI.refreshCoins) G.UI.refreshCoins();
     }).catch(e => {
       console.warn('[DB] no se pudo sincronizar:', e.code || e.message);
+      // El servidor la rechaza por imposible (partida editada). Se reintenta 10 veces
+      // (casi 1 h: el margen del servidor crece con el tiempo, por si era un caso
+      // justo) y si sigue, se ignora el cambio y se vuelve a lo que hay en la nube.
+      if (e.code === 'permission-denied' && ++rejects >= 10) { rejects = 0; return adoptRemote(); }
       pending = true; failed = true;
       setSync(navigator.onLine === false || e.code === 'unavailable' ? 'offline' : 'pending');
       scheduleRetry();
@@ -395,6 +440,25 @@ G.DB = (() => {
       if (!failed && pending && syncState === 'pending') schedulePush(Math.max(1500, PUSH_GAP - (Date.now() - lastPush)));
     });
     return pushing;
+  }
+
+  /** Deja la partida como está en la nube (tras un rechazo del servidor). */
+  let rejects = 0;
+  async function adoptRemote() {
+    try {
+      const snap = await docRef().get();
+      if (snap.exists && save) {
+        applyInPlace(migrate(snap.data().save));
+        write(K_CLOUD + uid, save);
+      }
+      pending = false;
+      setSync('ok');
+      if (G.UI && G.UI.refreshCoins) G.UI.refreshCoins();
+    } catch (e) {
+      pending = true;
+      setSync('pending');
+      scheduleRetry();
+    }
   }
 
   // Si ya había una subida programada antes, se respeta (una compra no espera a la siguiente partida).

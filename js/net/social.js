@@ -25,8 +25,8 @@ G.Social = (() => {
   const VALID = /^[A-Za-z0-9_ñÑáéíóúÁÉÍÓÚ]{3,16}$/;
   const MAX_PLAYERS = 4;
   const INVITE_TTL = 3 * 60 * 1000;
-  const BEAT = 10 * 60 * 1000;          // latido de presencia
-  const ONLINE = 16 * 60 * 1000;        // "en línea" si el último latido es más reciente
+  const BEAT = 15 * 60 * 1000;          // latido de presencia (era 10 min: menos escrituras)
+  const ONLINE = 22 * 60 * 1000;        // "en línea" si el último latido es más reciente
   const PRES_TTL = 60 * 1000;           // lo leído de los amigos vale 1 min
 
   let fb = null, uid = null;
@@ -56,8 +56,18 @@ G.Social = (() => {
     if (started) return me ? 'ok' : 'need-nick';
     fb = G.DB.fb; uid = fb.uid;
     started = true;
-    const prof = await fb.fs.collection('profiles').doc(uid).get().then(s => s.exists ? s.data() : null).catch(() => null);
-    if (prof) { me = { uid, name: prof.name }; if (G.DB.user !== prof.name) G.DB.setName(prof.name); }
+    // El apodo no cambia nunca: se recuerda en este navegador y así no se lee
+    // el perfil en cada visita (una lectura menos por jugador y sesión).
+    const NICK = 'ps.nick.' + uid;
+    let cachedNick = null;
+    try { cachedNick = localStorage.getItem(NICK); } catch (e) { /* nada */ }
+    const prof = cachedNick ? { name: cachedNick }
+      : await fb.fs.collection('profiles').doc(uid).get().then(s => s.exists ? s.data() : null).catch(() => null);
+    if (prof) {
+      me = { uid, name: prof.name };
+      if (G.DB.user !== prof.name) G.DB.setName(prof.name);
+      try { localStorage.setItem(NICK, prof.name); } catch (e) { /* nada */ }
+    }
     else if (G.DB.nameAccount) {
       // Cuentas de nombre y contraseña: su nombre ya es único, se usa de apodo.
       const r = await claimNick(G.DB.save.name);
@@ -86,6 +96,7 @@ G.Social = (() => {
       return { ok: false, error: 'No se pudo guardar el apodo (' + ((e && e.code) || 'error') + ').' };
     }
     me = { uid, name };
+    try { localStorage.setItem('ps.nick.' + uid, name); } catch (e) { /* nada */ }
     G.DB.setName(name);
     if (started && !beatT) online();
     publishProfile(true);
@@ -102,6 +113,11 @@ G.Social = (() => {
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('pagehide', onHide);
     listenFriends();
+  }
+
+  /** Invitaciones a salas: sólo te pueden llegar de amigos, así que sin amigos no se escucha (lecturas). */
+  function listenInvites() {
+    if (unInv || !fb) return;
     unInv = fb.fs.collection('inv').where('to', '==', uid).onSnapshot(snap => {
       snap.docChanges().forEach(ch => {
         const v = ch.doc.data();
@@ -134,7 +150,10 @@ G.Social = (() => {
     document.removeEventListener('visibilitychange', onVisible);
     window.removeEventListener('pagehide', onHide);
     if (me) await fb.fs.collection('pres').doc(uid).delete().catch(() => {});
-    if (why === 'delete') await deleteAll().catch(e => console.warn('[Social] borrar:', e));
+    if (why === 'delete') {
+      try { localStorage.removeItem('ps.nick.' + uid); } catch (e) { /* nada */ }
+      await deleteAll().catch(e => console.warn('[Social] borrar:', e));
+    }
     friends.clear(); invites.clear(); sentInv.clear(); pres.clear(); presAt = 0;
     me = null; started = false; fb = null; uid = null; playing = false;
     emit('stop');
@@ -177,8 +196,9 @@ G.Social = (() => {
       const hadFriends = hasFriends();
       friends = next;
       emit('friends');
-      // Tu primer amigo: ahora sí hay quien lea tu "en línea".
+      // Tu primer amigo: ahora sí hay quien lea tu "en línea" y quien te invite.
       if (!hadFriends && hasFriends()) writeStatus();
+      if (hasFriends()) listenInvites();
       // Se mira si está en línea un momento después: tu amigo también acaba de
       // recibir la amistad y está apuntando su "en línea" a la vez.
       if (added) setTimeout(() => { if (started) refreshPresence(true); }, 2500);
@@ -440,7 +460,7 @@ G.Social = (() => {
    */
   function publishProfile(force = false) {
     if (!me || !fb) return;
-    if (!force && Date.now() - pubAt < 10 * 60 * 1000) return;
+    if (!force && Date.now() - pubAt < 30 * 60 * 1000) return;     // como mucho cada 30 min (era 10)
     clearTimeout(pubT);
     pubT = setTimeout(() => {
       if (!me || !fb) return;

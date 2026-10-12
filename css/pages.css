@@ -1,7 +1,8 @@
 /* ============ pages.css — páginas de texto (guía, Pokédex, 404) ============
  * Mismo estilo que el juego (azul de Mundo Misterioso, dorado y fuente pixel),
  * pero pensadas para leer cómodamente en PC y móvil. */
-@font-face { font-family: 'Pixelify'; src: url('../assets/fonts/PixelifySans.ttf') format('truetype'); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: 'Pixelify'; src: url('../assets/fonts/PixelifyPS-400.ttf') format('truetype'); font-weight: 400 550; font-display: swap; }
+@font-face { font-family: 'Pixelify'; src: url('../assets/fonts/PixelifyPS-700.ttf') format('truetype'); font-weight: 551 900; font-display: swap; }
 :root { --navy: #0a1430; --box1: #2c519f; --box2: #1a3170; --edge: #f4f8ff; --gold: #ffd23f; --muted: #b9cbf0; --ink: #fff; }
 * { box-sizing: border-box; }
 html { background: var(--navy); }

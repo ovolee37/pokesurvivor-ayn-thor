@@ -37,6 +37,9 @@ G.Ranking = (() => {
   //  Pokémon y escribía; ahora también sólo el top 50.)
   const TOP_ONLY = new Set(['d', 'w', 'm', 'p']);
   const TOP = 50;
+  // Las runs de menos de 1 minuto no se suben (casi nunca entran en una tabla
+  // y eran muchas lecturas y escrituras para nada).
+  const MIN_T = 60;
   const TTL = 30 * 60 * 1000;            // caché de lo leído (30 min: menos lecturas de Firestore)
 
   const fbx = () => G.DB.online ? G.DB.fb : null;
@@ -138,8 +141,15 @@ G.Ranking = (() => {
       try {
         // ¿Ya tenías una marca mejor? Si este navegador no lo sabe, se mira una vez.
         if (known[key] === undefined) {
-          const old = await col(b).doc(id).get();
-          known[key] = old.exists ? old.data().t : 0;
+          if (TOP_ONLY.has(period)) {
+            // En estas tablas sólo hay marcas en el top 50: basta con el resumen
+            // (que además se guarda 30 min y es el mismo que se lee al mirar el ranking).
+            const top = await summary(b);
+            known[key] = top[id] ? top[id].t : 0;
+          } else {
+            const old = await col(b).doc(id).get();
+            known[key] = old.exists ? old.data().t : 0;
+          }
         }
         if (known[key] >= entry.t) return;
         const data = Object.assign({}, entry, { at: firebase.firestore.FieldValue.serverTimestamp() });
@@ -160,6 +170,8 @@ G.Ranking = (() => {
             const top = Object.assign({}, s.exists ? s.data().top : {});
             const mine = { t: entry.t, uids: entry.uids, names: entry.names, dex: entry.dex, shiny: entry.shiny, lv: entry.lv, kills: entry.kills };
             let ev = '';
+            // Ya estabas con una marca mejor (otro ordenador): nada que escribir.
+            if (id in top && top[id].t >= entry.t) { entered = false; newTop = top; return; }
             if (!(id in top) && Object.keys(top).length >= TOP) {
               const low = sorted(top).pop();
               if (low.t >= entry.t) {                                // no entra en el top
@@ -195,7 +207,7 @@ G.Ranking = (() => {
 
   async function submitSolo(r) {
     const fb = fbx();
-    if (!fb || !G.Social.me || r.t < 5) return [];
+    if (!fb || !G.Social.me || r.t < MIN_T) return [];
     const ids = periodIds();
     const entry = { t: r.t, uids: [fb.uid], names: [G.Social.me.name], dex: [r.dex], shiny: [!!r.shiny], lv: r.lv, kills: r.kills };
     const boards = PERIODS.map(([p]) => ['s_' + ids[p], p]);
@@ -208,7 +220,7 @@ G.Ranking = (() => {
   /** La sube el anfitrión, con todo el equipo. */
   async function submitGroup(r) {
     const fb = fbx();
-    if (!fb || r.t < 5 || !r.members || r.members.length < 2) return [];
+    if (!fb || r.t < MIN_T || !r.members || r.members.length < 2) return [];
     const ms = r.members.slice().sort((a, b) => (a.uid < b.uid ? -1 : 1));
     const id = ms.map(m => m.uid).join('_');
     const entry = { t: r.t, uids: ms.map(m => m.uid), names: ms.map(m => m.name), dex: ms.map(m => m.dex),

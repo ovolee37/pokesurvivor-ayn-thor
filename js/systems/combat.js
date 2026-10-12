@@ -30,7 +30,11 @@ G.Combat = (() => {
     m.t -= dt;
     if (m.t > 0) return;
     // Los ataques que necesitan blanco esperan a tenerlo (no gastes animación al aire).
-    if (needsTarget(m) && !(pl.target && G.U.dist(pl.x, pl.y, pl.target.x, pl.target.y) <= reach(m))) {
+    // Con apuntado manual, los ataques dirigidos salen hacia donde apuntas
+    // aunque no haya nadie (los que buscan blanco solos, como cadena o
+    // meteoro, siguen esperando a tener uno).
+    const free = pl.manualAim && FREE_AIM.includes(m.kind);
+    if (needsTarget(m) && !free && !(pl.target && G.U.dist(pl.x, pl.y, pl.target.x, pl.target.y) <= reach(m))) {
       m.t = 0.05;
       return;
     }
@@ -65,6 +69,7 @@ G.Combat = (() => {
 
   const TARGETED = ['melee', 'beam', 'projectile', 'boomerang', 'chain', 'meteor', 'dash', 'cone'];
   function needsTarget(m) { return TARGETED.includes(m.kind); }
+  const FREE_AIM = ['melee', 'beam', 'projectile', 'boomerang', 'cone', 'dash'];
   function reach(m) {
     if (m.kind === 'melee') return m.radius + 30;
     if (m.kind === 'beam') return m.radius + 20;
@@ -522,10 +527,15 @@ G.Combat = (() => {
     else if (G.Projectiles.all().some(p => p.orb && p.owner === pl)) G.Projectiles.clearOrbs(pl);
   }
 
+  // Golpe crítico (Mejoras → Golpe Crítico): x1,5 de daño, número naranja y grande.
+  const CRIT_MUL = 1.5;
+  const isCrit = pl => !ghost && pl.critChance > 0 && Math.random() < pl.critChance;
+
   function hit(pl, e, dmg, col, dx, dy, knock, m) {
     const k = typeK(m.type, e);
-    dmg *= k;
-    e.hurt(dmg, col, dx, dy, knock, G.Types.label(G.Types.mult(m.type, e.types)));
+    const crit = isCrit(pl);
+    dmg *= k * (crit ? CRIT_MUL : 1);
+    e.hurt(dmg, col, dx, dy, knock, crit ? 'crit' : G.Types.label(G.Types.mult(m.type, e.types)));
     if (!ghost) pl.onDealt(dmg);
     pl.dmgDealt += dmg;
     if (m.burn) e.applyBurn(m.burn);
@@ -630,9 +640,10 @@ G.Combat = (() => {
           break;
         }
 
-        const k = p.mtype ? typeK(p.mtype, e) : 1;
+        const crit = isCrit(pl);
+        const k = (p.mtype ? typeK(p.mtype, e) : 1) * (crit ? CRIT_MUL : 1);
         e.hurt(p.dmg * k, p.color, p.vx || (e.x - pl.x), p.vy || (e.y - pl.y), p.knock,
-               p.mtype ? G.Types.label(G.Types.mult(p.mtype, e.types)) : null);
+               crit ? 'crit' : p.mtype ? G.Types.label(G.Types.mult(p.mtype, e.types)) : null);
         if (Math.random() < 0.5) G.FX.sp('impact', p.vis ? p.vis.pal : 'normal', e.x, e.y - e.bodyH * 0.5, { life: 0.12, scale: 1 });
         pl.dmgDealt += p.dmg * k;
         pl.onDealt(p.dmg * k);

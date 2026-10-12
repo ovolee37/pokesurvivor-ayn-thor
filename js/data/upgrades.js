@@ -12,7 +12,10 @@ G.Upgrades = (() => {
     { id: 'magnet', icon: 'magnet', name: 'Imán',           unit: '+12% recogida',      max: 6,  base: 50,  grow: 1.4 },
     { id: 'xp',     icon: 'book', name: 'Sabiduría',      unit: '+5% experiencia',    max: 8,  base: 100, grow: 1.42 },
     { id: 'coins',  icon: 'coin', name: 'Fortuna',        unit: '+8% Pokémonedas',    max: 8,  base: 120, grow: 1.45 },
-    { id: 'moves',  icon: 'cards', name: 'Repertorio',     unit: 'Empiezas con 2 movimientos', max: 1, base: 1500, grow: 1 }
+    { id: 'moves',  icon: 'cards', name: 'Repertorio',     unit: 'Empiezas con 2 movimientos', max: 1, base: 1500, grow: 1 },
+    { id: 'crit',   icon: 'star', name: 'Golpe Crítico',  unit: '+3% de críticos (x1,5 de daño)', max: 10, base: 90, grow: 1.4 },
+    { id: 'reroll', icon: 'up', name: 'Cambio de cartas', unit: '+1 cambio de cartas de nivel por run', max: 5, base: 150, grow: 1.6 },
+    { id: 'ban',    icon: 'ban', name: 'Veto',           unit: 'Bloquea 1 movimiento: no te sale en las cartas', max: 3, base: 300, grow: 1.9 }
   ];
   const BY = {};
   for (const u of LIST) BY[u.id] = u;
@@ -24,7 +27,8 @@ G.Upgrades = (() => {
 
   /** Niveles comprados -> modificadores para G.Player. */
   function perks(levels = {}) {
-    const L = id => levels[id] || 0;
+    // Nunca por encima del máximo (una partida editada a mano no da más poder).
+    const L = id => Math.max(0, Math.min(BY[id].max, Math.floor(+levels[id] || 0)));
     return {
       hp: L('hp') * 8,
       atkMul: 1 + L('atk') * 0.04,
@@ -35,7 +39,10 @@ G.Upgrades = (() => {
       magnetMul: 1 + L('magnet') * 0.12,
       xpMul: 1 + L('xp') * 0.05,
       coinMul: 1 + L('coins') * 0.08,
-      startMoves: 1 + L('moves')
+      startMoves: 1 + L('moves'),
+      crit: L('crit') * 0.03,
+      rerolls: L('reroll'),
+      bans: L('ban')
     };
   }
 

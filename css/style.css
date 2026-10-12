@@ -2,10 +2,17 @@
  * Cajas azules con doble borde blanco, como los menús de PMD, y fuente pixel
  * local (Pixelify Sans, OFL).
  */
+/* Pixelify Sans con los números redibujados para que no se confundan (tools/make_font.py). */
 @font-face {
   font-family: 'Pixelify';
-  src: url('../assets/fonts/PixelifySans.ttf') format('truetype');
-  font-weight: 400 700;
+  src: url('../assets/fonts/PixelifyPS-400.ttf') format('truetype');
+  font-weight: 400 550;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Pixelify';
+  src: url('../assets/fonts/PixelifyPS-700.ttf') format('truetype');
+  font-weight: 551 900;
   font-display: block;
 }
 
@@ -626,6 +633,10 @@ a.plink:hover { color: var(--gold); }
 /* ================= móvil y táctil ================= */
 html, body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
 body { touch-action: manipulation; }
+/* iPhone: sin esto, mantener el dedo en el joystick sacaba "Copiar / Seleccionar
+   todo" (Safari sólo hace caso a la versión -webkit- y no lo hereda bien). */
+body, body * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 /* Con táctil no tienen sentido las pistas de teclas. */
 body.touch kbd, body.touch .card .key, body.touch .kbd-hint { display: none !important; }
 #rotate {
@@ -740,6 +751,28 @@ a.btn { text-decoration: none; display: inline-block; color: var(--ink); }
 /* ---------- apoyar el proyecto ---------- */
 #scr-support { z-index: 60; }
 .box.support { width: min(560px, 100%); }
+/* Mejoras: botones y veto */
+.upg-btns { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.ban-picker { grid-column: 1 / -1; }
+.ban-moves { display: flex; flex-wrap: wrap; gap: 6px; }
+.ban-moves .chip { display: inline-flex; align-items: center; gap: 5px; }
+.ban-moves .chip.ban { background: rgba(255,95,109,.25); border-color: #ff5f6d; color: #ffd3d8; text-decoration: line-through; }
+/* Novedades */
+.news-btn { position: relative; }
+.news-btn .dot { display: none; position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; background: #ff5f6d; box-shadow: 0 0 0 2px var(--shadow); }
+.news-btn.new .dot { display: block; }
+.box.news-box { width: min(640px, 100%); max-height: calc(100dvh - 90px); display: flex; flex-direction: column; }
+.news-body { overflow-y: auto; padding-right: 4px; }
+.news-day { padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,.1); }
+.news-day:last-child { border-bottom: 0; }
+.news-day h3 { color: var(--gold); margin: 14px 0 6px; font-size: 18px; }
+.news-day h3 small { display: block; color: var(--muted); font-size: 13px; font-weight: 400; margin-top: 2px; }
+.news-part { margin: 6px 0 8px; }
+.news-tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 4px; color: #0b1020; text-shadow: none; }
+.news-tag.new { background: #5fe08a; } .news-tag.chg { background: #4fb4ff; } .news-tag.fix { background: #ffb347; }
+.news-day ul { margin: 0; padding-left: 20px; }
+.news-day li { margin: 4px 0; line-height: 1.35; font-size: 15px; }
+@media (max-width: 760px) { .news-btn span { display: none; } }
 .sup-tab { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font-size: 15px; }
 .sup-tab td { padding: 5px 4px; border-bottom: 1px solid rgba(255,255,255,.1); }
 .sup-tab td.num { text-align: right; white-space: nowrap; }
