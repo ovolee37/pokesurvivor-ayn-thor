@@ -1,8 +1,46 @@
-# PokéSurvivor · Mundo Misterioso
+# PokéSurvivor for AYN Thor
 
-> **Android app for the AYN Thor:** download the APK from the
-> [latest release](https://github.com/ovolee37/pokesurvivor-ayn-thor/releases/latest).
-> Build instructions: [Android build](#android-build).
+**Android port of [PokéSurvivor](https://github.com/JPTER78/pokesurvivor) by
+JPTER78, made for the AYN Thor handheld.**
+
+PokéSurvivor is a Pokémon bullet-heaven in the style of Survivor.io and
+Megabonk: sprites from *Pokémon Mystery Dungeon*, a roguelike layer,
+966 Pokémon from all 9 generations, shinies and a gacha per region. This
+repository wraps the same game in an Android app and adds full controller
+support for the Thor. The game itself is free, and so is this app.
+
+### Download
+
+**[Latest release (APK)](https://github.com/ovolee37/pokesurvivor-ayn-thor/releases/latest)**:
+download the APK on the Thor and open it. New versions install over the old
+one and keep your save data.
+
+### What the Android version adds
+
+- **Controller support:** the left stick moves, A / B / X / Y pick moves 1–4,
+  L1 / R1 cycle moves, Start pauses, Select opens the settings. In menus the
+  D-pad or stick moves a focus frame, A confirms, B goes back.
+- **Manual aiming with the right stick** (Settings > Controls > Aiming), based
+  on the fork by [Iván Freire](https://github.com/IvanFreireDacoba/pokesurvivor).
+- **L1 / R1 reroll** the level-up cards.
+- **Back button** goes back in menus and pauses the game.
+- **Sign in with Google** works inside the app (through Chrome), so your cloud
+  save is the same as on the website.
+- Kept up to date with the original game (see [Android build](#android-build)
+  for what changed and how to build the APK yourself).
+
+Tested on the AYN Thor (Android 13). Other Android devices should work too,
+but are not tested.
+
+*Free, non-profit fan project, not affiliated with Nintendo, Creatures,
+GAME FREAK or The Pokémon Company.*
+
+---
+
+*Below is the original README by JPTER78 (in Spanish), with the Android build
+notes added at the end.*
+
+# PokéSurvivor · Mundo Misterioso
 
 Bullet-heaven con Pokémon al estilo de Survivor.io y Megabonk, con sprites de
 *Pokémon Mundo Misterioso*, capa roguelike, **966 Pokémon de las 9 generaciones**,
