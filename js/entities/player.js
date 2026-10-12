@@ -53,6 +53,7 @@ G.Player = class Player {
     this.rerollBonus = perks.rerolls || 0;   // cambios comprados en Mejoras (más el gratis)
     this.critChance = perks.crit || 0;       // probabilidad de golpe crítico (Mejoras)
     this.banned = new Set();                 // movimientos vetados (Mejoras → Veto): no salen en las cartas
+    this.bind = {};                          // movimiento -> hueco fijo (0-3), elegido en Mejoras
     this.coins = 0;            // monedas recogidas en esta run
     this.t1 = 0; this.t10 = 0; // tickets del gacha recogidos en esta run
     this.dmgDealt = 0;
@@ -100,10 +101,36 @@ G.Player = class Player {
     if (this.slots.length >= this.maxMoves || this.hasMove(id)) return false;
     const m = G.Moves.instance(id, 1);
     this.moves.push(m);
-    this.slots.push([m]);
+    const group = [m];
+    this.slots.push(group);
+    this.arrange();
     // Se cambia al nuevo, salvo si estás usando un vínculo (no te quita el grupo).
-    if (!(this.slots[this.active] && this.slots[this.active].length > 1)) this.setActive(this.slots.length - 1);
+    if (!(this.slots[this.active] && this.slots[this.active].length > 1)) this.setActive(this.slots.indexOf(group));
     return true;
+  }
+
+  /**
+   * Huecos fijos (Mejoras → Atajos): cada movimiento con hueco elegido se pone
+   * en ese número para la memoria muscular (Confusión siempre en el 1...).
+   * Mientras no tengas tantos movimientos, va al más cercano; los demás
+   * rellenan los huecos libres en el orden en que los aprendiste.
+   */
+  arrange() {
+    const n = this.slots.length;
+    if (n < 2 || !this.bind) return;
+    const want = g => { let k = Infinity; for (const m of g) if (this.bind[m.id] != null) k = Math.min(k, this.bind[m.id]); return k; };
+    const cur = this.slots[this.active];
+    const out = new Array(n).fill(null);
+    const bound = this.slots.filter(g => want(g) < Infinity).sort((a, b) => want(a) - want(b));
+    for (const g of bound) {
+      let p = Math.min(want(g), n - 1);
+      while (p >= 0 && out[p]) p--;                          // ocupado: el de antes
+      if (p < 0) { p = 0; while (out[p]) p++; }              // o el primero libre
+      out[p] = g;
+    }
+    for (const g of this.slots) if (!out.includes(g)) out[out.indexOf(null)] = g;
+    this.slots = out;
+    if (cur) this.active = out.indexOf(cur);
   }
 
   hasMove(id) { return this.moves.some(m => m.id === id); }
@@ -153,6 +180,7 @@ G.Player = class Player {
       this.slots.splice(i, 1);
       target.push(m);
     }
+    this.arrange();
     // Se pasa al grupo, salvo con la Cinta Elección (sigues en el hueco que tenías, si queda).
     const a = this.slots.indexOf(cur);
     this.active = this.hasItem('choiceband') && a >= 0 ? a : this.slots.indexOf(target);

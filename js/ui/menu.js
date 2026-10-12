@@ -290,6 +290,40 @@ G.MenuUI = (() => {
       box.appendChild(el);
       if (u.id === 'ban' && lvl > 0 && banOpen) box.appendChild(banPicker(lvl));
     }
+    box.appendChild(bindPanel());
+  }
+
+  // ---------------- atajos: hueco fijo para cada movimiento ----------------
+  // save.pbind[dex] = [movimiento del hueco 1, del 2, del 3, del 4] (o null).
+  function bindPanel() {
+    const s = G.DB.save;
+    s.pbind = s.pbind || {};
+    const list = s.pbind[upgDex] || [null, null, null, null];
+    const mon = G.DEX_BY[upgDex];
+    const ids = G.Moves.poolFor(mon).concat([G.startMoveOf(upgDex)]).filter((v, i, a) => a.indexOf(v) === i)
+      .sort((a, b) => G.Moves.BY_ID[a].name.localeCompare(G.Moves.BY_ID[b].name, 'es'));
+    const el = document.createElement('div');
+    el.className = 'panel bind-panel';
+    el.innerHTML = `<b>Atajos de movimientos</b>
+      <p class="sub" style="margin:2px 0 8px">Elige qué movimiento va siempre en cada hueco (teclas 1-4 o los iconos de abajo), para la memoria muscular. Si aún no tienes tantos movimientos, va al hueco más cercano.</p>
+      <div class="bind-slots">${[0, 1, 2, 3].map(i => `<label class="bind-slot"><span>${i + 1}</span>
+        <select class="field" data-slot="${i}"><option value="">Libre</option>${ids.map(id =>
+          `<option value="${id}" ${list[i] === id ? 'selected' : ''}>${G.Moves.BY_ID[id].name}</option>`).join('')}</select></label>`).join('')}</div>`;
+    el.querySelectorAll('select[data-slot]').forEach(sel => {
+      sel.onchange = () => {
+        const l = (s.pbind[upgDex] || [null, null, null, null]).slice(0, 4);
+        while (l.length < 4) l.push(null);
+        const i = +sel.dataset.slot, id = sel.value || null;
+        // Un movimiento sólo puede estar en un hueco.
+        for (let j = 0; j < 4; j++) if (id && l[j] === id) l[j] = null;
+        l[i] = id;
+        s.pbind[upgDex] = l;
+        G.DB.commit();
+        G.Audio.sfx('select');
+        renderUpgrades();
+      };
+    });
+    return el;
   }
 
   // ---------------- veto: movimientos bloqueados ----------------

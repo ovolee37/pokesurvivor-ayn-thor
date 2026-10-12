@@ -523,6 +523,9 @@ G.I18n.add({
   'El juego ha fallado: tu partida se ha guardado hasta aquí': 'The game crashed: your run has been saved up to this point',
   'Pausa: esperando a {x} (anfitrión)…': 'Paused: waiting for {x} (host)…',
   'Novedades': "What's new",
+  'Atajos de movimientos': 'Move shortcuts', 'Libre': 'Free',
+  'Elige qué movimiento va siempre en cada hueco (teclas 1-4 o los iconos de abajo), para la memoria muscular. Si aún no tienes tantos movimientos, va al hueco más cercano.':
+    'Choose which move always goes in each slot (keys 1-4 or the icons at the bottom), for muscle memory. If you do not have that many moves yet, it goes to the closest slot.',
   'Golpe Crítico': 'Critical Hit', '+3% de críticos (x1,5 de daño)': '+3% critical chance (x1.5 damage)',
   'Cambio de cartas': 'Card reroll', '+1 cambio de cartas de nivel por run': '+1 level-up card reroll per run',
   'Veto': 'Ban', 'Bloquea 1 movimiento: no te sale en las cartas': 'Ban 1 move: it never shows up in your cards',

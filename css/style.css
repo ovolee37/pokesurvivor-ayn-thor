@@ -754,6 +754,12 @@ a.btn { text-decoration: none; display: inline-block; color: var(--ink); }
 /* Mejoras: botones y veto */
 .upg-btns { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .ban-picker { grid-column: 1 / -1; }
+.bind-panel { grid-column: 1 / -1; }
+.bind-slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.bind-slot { display: flex; align-items: center; gap: 6px; margin: 0; }
+.bind-slot span { font-weight: 700; color: var(--gold); min-width: 14px; }
+.bind-slot select { width: 100%; min-width: 0; }
+@media (max-width: 760px) { .bind-slots { grid-template-columns: repeat(2, 1fr); } }
 .ban-moves { display: flex; flex-wrap: wrap; gap: 6px; }
 .ban-moves .chip { display: inline-flex; align-items: center; gap: 5px; }
 .ban-moves .chip.ban { background: rgba(255,95,109,.25); border-color: #ff5f6d; color: #ffd3d8; text-decoration: line-through; }

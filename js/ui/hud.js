@@ -242,7 +242,8 @@ G.HUD = (() => {
     const n = Math.max(1, pl.slots.length);
     const totalW = n * S + (n - 1) * GAP;
     let sx = (w - totalW) / 2;
-    const sy = h - S - 18;
+    // Por encima de la barra de inicio del iPhone (allí los toques a veces no llegan).
+    const sy = h - S - 18 - (touch ? Math.min(28, G.Touch.safeArea().bottom) : 0);
     const BOND = '#ff8ad8';
     const cdOf = m => m.kind === 'orbit' ? 0 : G.U.clamp(m.t / (m.cd * pl.cdMul), 0, 1);
 
@@ -254,7 +255,7 @@ G.HUD = (() => {
       const x = sx + i * (S + GAP);
       const y = on ? sy - 6 : sy;
       // Tocar (o hacer clic en) un icono activa ese movimiento.
-      if (m) G.Touch.addButton(x, y, S, S, () => { if (G.Game.state === 'playing' && pl.active !== i) { pl.setActive(i); G.Audio.sfx('click'); } }, GAP / 2);
+      if (m) G.Touch.addButton(x, y, S, S, () => { if (G.Game.state === 'playing' && pl.active !== i) { pl.setActive(i); G.Audio.sfx('click'); } }, GAP / 2 + 3);
       const col = m ? G.U.TYPE_COLOR[m.type] : '#4a5468';
 
       // fondo
@@ -352,7 +353,8 @@ G.HUD = (() => {
 
     // ---------- botón de pausa (táctil) ----------
     if (touch) {
-      const bx = w - 52, by = 12, bs = 40;
+      const sa = G.Touch.safeArea();
+      const bx = w - 52 - Math.min(44, sa.right), by = 12 + Math.min(20, sa.top), bs = 40;
       roundRect(ctx, bx, by, bs, bs, 10);
       ctx.fillStyle = 'rgba(10,16,28,.7)'; ctx.fill();
       ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(244,248,255,.8)'; ctx.stroke();
