@@ -271,7 +271,7 @@ at commit `f552173`.
   files, icons, splash screens, example tests), `capacitor.config.json`,
   `package.json`, `package-lock.json`.
 
-Later changes (app v1.2 to v1.6):
+Later changes (app v1.2 to v1.7):
 
 - **Upstream update:** merged [JPTER78/pokesurvivor](https://github.com/JPTER78/pokesurvivor)
   up to commit `65b35ef` (v1.2) and `511c65e` (v1.3: fixed move slots, iPhone touch fixes) and `a53d4e9`
@@ -287,6 +287,9 @@ Later changes (app v1.2 to v1.6):
 - **No obfuscation in the app** (v1.6): upstream obfuscates the published
   bundle since v1.5, which caused short stutters on the AYN Thor. The app now
   ships the same code only minified (`scripts/app-bundle.js`).
+- **Link Gmail in the app** (v1.7): the account recovery from upstream (link your
+  Gmail to a name-and-password account) used a popup; in the app it now goes
+  through Chrome like the Google sign-in (`js/core/db.js`, `linkGoogle`).
 
 ## Créditos y licencia
 
