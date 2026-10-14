@@ -222,6 +222,9 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
   `cloudflare`, the Firebase project files and `dev.html`) and runs
   `npx cap sync android`. `-Bundle` runs `node tools/build.js` first, `-NoSync`
   only copies. `js/core/firebase-config.js` stays in, the game needs it.
+  Then `scripts/app-bundle.js` replaces `www/js/app.min.js` with a version that
+  is minified but not obfuscated (same scripts, same `?v=` hash, so the
+  auto-updater does not reload).
 - Shortcuts: `npm run apk` (debug) or `npm run apk:release` (release).
 - **Release APK** (`de.aynthor.pokesurvivor`, not debuggable, signed with its
   own key): `cd android; .\gradlew.bat assembleRelease` →
@@ -268,7 +271,7 @@ at commit `f552173`.
   files, icons, splash screens, example tests), `capacitor.config.json`,
   `package.json`, `package-lock.json`.
 
-Later changes (app v1.2 to v1.5):
+Later changes (app v1.2 to v1.6):
 
 - **Upstream update:** merged [JPTER78/pokesurvivor](https://github.com/JPTER78/pokesurvivor)
   up to commit `65b35ef` (v1.2) and `511c65e` (v1.3: fixed move slots, iPhone touch fixes) and `a53d4e9`
@@ -281,6 +284,9 @@ Later changes (app v1.2 to v1.5):
   Choose it in Settings > Controls > Aiming (Automatic / Manual); in manual
   mode, directed attacks only fire while you aim.
 - **L1 / R1** reroll the level-up cards.
+- **No obfuscation in the app** (v1.6): upstream obfuscates the published
+  bundle since v1.5, which caused short stutters on the AYN Thor. The app now
+  ships the same code only minified (`scripts/app-bundle.js`).
 
 ## Créditos y licencia
 

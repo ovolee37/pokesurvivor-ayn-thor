@@ -43,6 +43,11 @@ $global:LASTEXITCODE = 0
 foreach ($need in @('index.html', 'js\app.min.js', 'js\core\firebase-config.js', 'css\style.css')) {
   if (-not (Test-Path (Join-Path $www $need))) { throw "www\$need is missing" }
 }
+# The app gets its own app.min.js without the obfuscation (faster, see scripts/app-bundle.js).
+Write-Host '> node scripts/app-bundle.js'
+node scripts/app-bundle.js
+if ($LASTEXITCODE -ne 0) { throw 'scripts/app-bundle.js failed' }
+
 $files = (Get-ChildItem $www -Recurse -File | Measure-Object -Property Length -Sum)
 Write-Host ("www\ done: {0} files, {1:N1} MB" -f $files.Count, ($files.Sum / 1MB))
 
