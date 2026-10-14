@@ -699,7 +699,8 @@ G.DB = (() => {
   async function linkGoogle() {
     if (!auth || !auth.currentUser) return { ok: false, error: 'Inicia sesión primero.' };
     try {
-      await auth.currentUser.linkWithPopup(new firebase.auth.GoogleAuthProvider());
+      if (G.Native && G.Native.isApp) await auth.currentUser.linkWithCredential(await googleCredential());
+      else await auth.currentUser.linkWithPopup(new firebase.auth.GoogleAuthProvider());
       return { ok: true };
     } catch (e) {
       const c = (e && e.code) || '';
