@@ -48,7 +48,11 @@ G.Gamepad = (() => {
     defaultFocus: ['#btn-resume', '#pull-close', '.menu-item.play', '#btn-guest', '#btn-again', '.card', '.answer', '.btn.gold'],
     // Buttons that count as "back" inside the top screen.
     backButtons: '[data-back], #set-close, #legal-close, #sup-close, #bond-back, [data-a="no"]',
-    focusable: 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"]), .menu-item, .tab, .chip, .card, .cell:not(.locked), .answer, .gen-tab, #slot'
+    focusable: 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"]), .menu-item, .tab, .chip, .card, .cell, .answer, .gen-tab, #slot',
+    // Scrolling panels that can take the focus themselves while they have no
+    // button of their own (e.g. the Pokémon details of your partner, whose
+    // only button is disabled): up / down then scrolls them.
+    scrollPanels: '#dex-detail'
   };
 
   const N = 17;                          // standard buttons (0..16)
@@ -231,13 +235,15 @@ G.Gamepad = (() => {
     for (const r of roots) {
       r.querySelectorAll(CONFIG.focusable).forEach(el => {
         if (el.disabled || !visible(el)) return;
-        if (el.closest('.cell.locked')) return;
         // A pressable element inside another (e.g. a button inside a card): the outer one counts.
         const outer = el.parentElement && el.parentElement.closest(CONFIG.focusable);
         if (outer && r.contains(outer) && out.includes(outer)) return;
         const rc = el.getBoundingClientRect();
         if (rc.width < 2 || rc.height < 2) return;
         out.push(el);
+      });
+      r.querySelectorAll(CONFIG.scrollPanels).forEach(el => {
+        if (visible(el) && el.scrollHeight > el.clientHeight + 1 && !out.some(e => el.contains(e))) out.push(el);
       });
     }
     return out;
@@ -279,23 +285,71 @@ G.Gamepad = (() => {
     return list;
   }
 
+  /** The element itself or its closest ancestor that scrolls vertically (or null). */
+  function scrollBox(el) {
+    for (let p = el; p && p !== document.body; p = p.parentElement) {
+      if (p.scrollHeight > p.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(p).overflowY)) return p;
+    }
+    return null;
+  }
+
   /** Spatial navigation: the closest element in that direction. */
   function move(dx, dy, list) {
     if (!focusEl) { setFocus(defaultFocus(list)); return; }
-    const a = focusEl.getBoundingClientRect();
-    const ax = a.left + a.width / 2, ay = a.top + a.height / 2;
-    let best = null, bs = Infinity;
+    // Edges, not centers: only elements that lie fully in that direction count.
+    // With centers, a wide button above (like "Play" over the two menu columns)
+    // counted as "to the right" and won over the button next to it.
+    const a = focusEl.getBoundingClientRect(), T = 2;
+    const own = scrollBox(focusEl);
+    const cands = [];
     for (const el of list) {
       if (el === focusEl) continue;
       const r = el.getBoundingClientRect();
-      const bx = r.left + r.width / 2, by = r.top + r.height / 2;
-      const vx = bx - ax, vy = by - ay;
-      const along = vx * dx + vy * dy;               // progress in the requested direction
-      if (along <= 2) continue;
-      // Sideways distance measured from the edge (uneven rows and columns).
-      const side = dx ? Math.max(0, Math.abs(vy) - (a.height + r.height) / 2) : Math.max(0, Math.abs(vx) - (a.width + r.width) / 2);
-      const s = along + side * 3;
-      if (s < bs) { bs = s; best = el; }
+      // Scrolled out of view in another scrolling box: not reachable from here
+      // (from the bottom of the Pokémon details, "down" went to a hidden row).
+      const sb = el.parentElement && scrollBox(el.parentElement);
+      if (sb && sb !== own && !sb.contains(focusEl)) {
+        const v = sb.getBoundingClientRect();
+        if (r.bottom <= v.top || r.top >= v.bottom) continue;
+      }
+      const gap = dx > 0 ? r.left - a.right : dx < 0 ? a.left - r.right : dy > 0 ? r.top - a.bottom : a.top - r.bottom;
+      if (gap < -T) continue;
+      // Sideways distance from edge to edge: 0 = same row (or column).
+      const side = dx ? Math.max(0, r.top - a.bottom, a.top - r.bottom) : Math.max(0, r.left - a.right, a.left - r.right);
+      cands.push({ el, s: Math.max(0, gap) + side * 3, side });
+    }
+    let pool = cands;
+    if (dx) {
+      // Left / right stays in the row. At the end of a row it goes to whatever
+      // lies in that direction outside the list on the same screen (e.g. the
+      // Pokémon detail panel; not the top bar),
+      // and only if there is nothing, on in reading order among the same
+      // siblings (wrapped lists like the move chips).
+      const parent = focusEl.parentElement;
+      pool = cands.filter(c => c.side === 0);
+      if (!pool.length) pool = cands.filter(c => c.el.parentElement !== parent && layerEl && layerEl.contains(c.el));
+      if (!pool.length) {
+        const next = list[list.indexOf(focusEl) + dx];
+        if (next && next.parentElement === parent) { setFocus(next); return; }
+        pool = cands;
+      }
+    }
+    // Up / down inside a scrolling box (Pokémon list, detail panel) stays in it
+    // while it has more: rows scrolled out of view sit behind the filters above
+    // and lost to them. Where nothing to focus comes soon (text only, like the
+    // Pokémon details), the box scrolls a step instead.
+    const box = dy ? own : null;
+    const inBox = box ? cands.filter(c => box.contains(c.el)) : [];
+    if (inBox.length) pool = inBox;
+    let best = null, bs = Infinity;
+    for (const c of pool) if (c.s < bs) { bs = c.s; best = c.el; }
+    if (box) {
+      const step = box.clientHeight * 0.4, br = box.getBoundingClientRect();
+      // (a few pixels left to scroll don't count: that would only cost a press)
+      const more = dy > 0 ? box.scrollHeight - box.clientHeight - box.scrollTop > 16 : box.scrollTop > 16;
+      const r = best && inBox.length ? best.getBoundingClientRect() : null;
+      const far = !r || (dy > 0 ? r.top > br.bottom + step : r.bottom < br.top - step);
+      if (more && far) { box.scrollBy({ top: dy * step, behavior: 'smooth' }); return; }
     }
     if (best) setFocus(best);
   }

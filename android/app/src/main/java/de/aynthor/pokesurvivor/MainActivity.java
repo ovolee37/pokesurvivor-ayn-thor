@@ -32,6 +32,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(GoogleLoginPlugin.class);   // Google sign-in via Chrome (see there)
+        registerPlugin(WebPagesPlugin.class);      // website pages open in the browser (see there)
         super.onCreate(savedInstanceState);
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);

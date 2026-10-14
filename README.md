@@ -271,7 +271,7 @@ at commit `f552173`.
   files, icons, splash screens, example tests), `capacitor.config.json`,
   `package.json`, `package-lock.json`.
 
-Later changes (app v1.2 to v1.7):
+Later changes (app v1.2 to v1.8):
 
 - **Upstream update:** merged [JPTER78/pokesurvivor](https://github.com/JPTER78/pokesurvivor)
   up to commit `65b35ef` (v1.2) and `511c65e` (v1.3: fixed move slots, iPhone touch fixes) and `a53d4e9`
@@ -290,6 +290,13 @@ Later changes (app v1.2 to v1.7):
 - **Link Gmail in the app** (v1.7): the account recovery from upstream (link your
   Gmail to a name-and-password account) used a popup; in the app it now goes
   through Chrome like the Google sign-in (`js/core/db.js`, `linkGoogle`).
+- **Website links open in the browser** (v1.8): Guide & FAQ, Pokédex, Contact
+  and the support page used to replace the game with a broken page that Back
+  could not leave. `WebPagesPlugin.java` opens them on pokesurvivor.com instead.
+- **Better controller navigation in menus** (v1.8, `js/core/gamepad.js`): the
+  focus moves by edges instead of centers, stays in the row and wraps at its
+  end, stays inside scrolling lists, scrolls text-only panels (Pokémon
+  details) and also reaches Pokémon you have not found yet.
 
 ## Créditos y licencia
 
