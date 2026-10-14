@@ -273,7 +273,7 @@ Later changes (app v1.2 to v1.5):
 - **Upstream update:** merged [JPTER78/pokesurvivor](https://github.com/JPTER78/pokesurvivor)
   up to commit `65b35ef` (v1.2) and `511c65e` (v1.3: fixed move slots, iPhone touch fixes) and `a53d4e9`
   (v1.4: new Firebase project, co-op without the database relay) and `5374405`
-  (v1.5: Arceus' Judgment at minute 30, overtime from minute 60, ranking moderation, account recovery via Gmail).
+  (v1.5: Arceus' Judgment at minute 30, ranking reports and moderation, account recovery via Gmail).
 - **Manual aiming with the right stick**, based on the fork by
   [Iván Freire (IvanFreireDacoba)](https://github.com/IvanFreireDacoba/pokesurvivor)
   (commit `2451db3`), ported to this controller code in
