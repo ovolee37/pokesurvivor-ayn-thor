@@ -21,14 +21,36 @@ const block = dev.slice(i, j + END.length);
 const files = [...block.matchAll(/<script[^>]*src="(js\/[^"]+\.js)"/g)].map(m => m[1]);
 
 // Une los archivos en orden; cada uno separado por ';' por si alguno no acaba en punto y coma.
-const joined = files.map(f => `/* ${f} */\n` + fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n;\n');
+let joined = files.map(f => `/* ${f} */\n` + fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n;\n');
+// Anti-trampas: en la versión publicada el juego va ENCERRADO en una función:
+// G deja de existir en la consola del navegador (F12), y con él los atajos para
+// hacerse invencible, saltar el reloj, etc. (dev.html sigue igual, para programar).
+//   --expose   sin encerrar ni ofuscar (para las pruebas automáticas)
+const EXPOSE = process.argv.includes('--expose');
+if (!EXPOSE) {
+  const WIN_G = 'window.G = window.G || {};';
+  if (!joined.includes(WIN_G)) throw new Error('util.js ya no crea G como se esperaba: revisa build.js');
+  joined = '(() => {\n' + joined.replace(WIN_G, 'var G = {};') + '\n})();\n';
+}
 const tmp = path.join(ROOT, 'tools', 'cache', 'app.js');
 fs.mkdirSync(path.dirname(tmp), { recursive: true });
 fs.writeFileSync(tmp, joined);
 const outJs = path.join(ROOT, 'js', 'app.min.js');
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+const shell = process.platform === 'win32';
 execFileSync(npx, ['--yes', 'terser@5', tmp, '--compress', 'passes=1', '--mangle', '--comments', 'false', '--ecma', '2020', '-o', outJs],
-  { stdio: 'inherit', shell: process.platform === 'win32' });
+  { stdio: 'inherit', shell });
+// Y ofuscado: el código queda ilegible y se rompe solo si lo reformatean para
+// tocarlo. Las cadenas, en una tabla codificada (sólo una parte, para no frenar
+// el juego). Semilla fija: el mismo código da siempre el mismo archivo.
+if (!EXPOSE) {
+  execFileSync(npx, ['--yes', 'javascript-obfuscator@4.1.1', outJs, '--output', outJs,
+    '--compact', 'true', '--self-defending', 'true', '--seed', '7',
+    '--string-array', 'true', '--string-array-encoding', 'base64', '--string-array-threshold', '0.1',
+    '--identifier-names-generator', 'hexadecimal', '--rename-globals', 'false', '--transform-object-keys', 'false',
+    '--split-strings', 'false', '--control-flow-flattening', 'false', '--dead-code-injection', 'false',
+    '--unicode-escape-sequence', 'false', '--target', 'browser'], { stdio: 'inherit', shell });
+}
 const min = fs.readFileSync(outJs);
 const hash = crypto.createHash('sha1').update(min).digest('hex').slice(0, 10);
 
@@ -40,4 +62,7 @@ const SIN_SEO = process.argv.includes('--sin-seo');
 html = SIN_SEO ? html.replace(/<!-- seo:begin -->[\s\S]*?<!-- seo:end -->\n?/g, '') : html.replace(/<!-- seo:(begin|end) -->\n?/g, '');
 html = html.replace(/<!-- dev.html: página fuente[^>]*-->/, '<!-- GENERADO desde dev.html por tools/build.js: no editar a mano (se edita dev.html). -->');
 fs.writeFileSync(OUT, html);
-console.log(`${SIN_SEO ? '[sin SEO] ' : ''}ok: ${files.length} scripts · ${(joined.length / 1024).toFixed(0)} KB -> ${(min.length / 1024).toFixed(0)} KB (app.min.js?v=${hash})`);
+// Versión publicada: los jugadores la miran cada 5 min y, si cambia, el juego se
+// actualiza solo (en el menú, o al acabar la partida). Ver js/core/updater.js.
+fs.writeFileSync(path.join(ROOT, 'version.json'), JSON.stringify({ v: hash, at: new Date().toISOString() }) + '\n');
+console.log(`${SIN_SEO ? '[sin SEO] ' : ''}${EXPOSE ? '[SIN PROTEGER, sólo pruebas] ' : ''}ok: ${files.length} scripts · ${(joined.length / 1024).toFixed(0)} KB -> ${(min.length / 1024).toFixed(0)} KB (app.min.js?v=${hash})`);

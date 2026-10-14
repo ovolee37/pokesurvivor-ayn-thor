@@ -104,6 +104,9 @@
       <label for="f-pass">Contraseña</label>
       <input id="f-pass" class="field" type="password" maxlength="64">
       <p id="login-err" class="err"></p>
+      <p class="note"><a href="#" id="f-forgot">¿Olvidaste tu contraseña?</a></p>
+      <p id="forgot-note" class="note hidden">Si vinculaste tu Gmail, pulsa <b>Entrar con Google</b> con ese Gmail: es tu misma cuenta.
+        Si no lo vinculaste, no se puede recuperar: crea una cuenta nueva (y esta vez vincula tu Gmail desde el aviso que sale al entrar).</p>
       <div class="row">
         <button id="btn-auth" class="btn gold grow" type="submit">Entrar</button>
       </div>
@@ -210,6 +213,20 @@
   <div class="box news-box">
     <div class="row between"><h2>Novedades</h2><button class="btn small ghost" id="news-close">Cerrar</button></div>
     <div id="news-body" class="news-body"></div>
+  </div>
+</section>
+
+<!-- ====== Vincular Gmail para recuperar la cuenta (js/ui/login.js, offerRecovery) ====== -->
+<section id="scr-recover" class="scr dim hidden">
+  <div class="box" style="width:min(440px,100%)">
+    <h2>¿Te da miedo perder tu cuenta?</h2>
+    <p>Vincula tu Gmail: si un día olvidas la contraseña, pulsas <b>Entrar con Google</b> y es tu misma cuenta, con todo lo tuyo.</p>
+    <p class="err" id="rec-err"></p>
+    <div class="row" style="gap:8px;flex-wrap:wrap">
+      <button class="btn gold grow" id="rec-link" type="button">Vincular mi Gmail</button>
+      <button class="btn ghost" id="rec-later" type="button">Ahora no</button>
+    </div>
+    <p class="note center"><a href="#" id="rec-never">No volver a preguntar</a></p>
   </div>
 </section>
 
@@ -364,7 +381,7 @@
 <!-- ====== Ranking ====== -->
 <section id="scr-rank" class="scr dim hidden">
   <div class="box wide">
-    <div class="row between"><h2>Ranking <span class="sub" style="font-size:15px">· tiempo aguantado</span></h2><button class="btn small ghost" data-back>Volver</button></div>
+    <div class="row between"><h2>Ranking <span class="sub" style="font-size:15px">· tiempo aguantado</span></h2><span class="row" style="gap:6px"><button id="rk-mod" class="btn small ghost hidden">Moderación</button><button class="btn small ghost" data-back>Volver</button></span></div>
     <div class="gen-tabs" id="rk-mode"></div>
     <div class="filters" id="rk-period"></div>
     <div class="row rk-tools">
@@ -375,6 +392,18 @@
     </div>
     <div id="rk-list" class="rk-list"></div>
     <div id="rk-me" class="rk-me"></div>
+  </div>
+</section>
+
+<!-- ====== Moderación del ranking (sólo la cuenta de admin, ver js/ui/mod-ui.js) ====== -->
+<section id="scr-mod" class="scr dim hidden">
+  <div class="box wide">
+    <div class="row between"><h2>Moderación</h2><span class="row" style="gap:6px"><button class="btn small danger" id="mod-purge">Quitar marcas de más de 1 hora</button><button class="btn small ghost" id="mod-back">Volver</button></span></div>
+    <div class="tabs" id="mod-tabs">
+      <div class="tab on" data-tab="rep">Reportes</div>
+      <div class="tab" data-tab="sus">Cuentas marcadas</div>
+    </div>
+    <div id="mod-list" class="rk-list" style="max-height:60vh"></div>
   </div>
 </section>
 
@@ -526,6 +555,6 @@
 </section>
 
 <!-- datos generados -->
-<script defer src="js/app.min.js?v=29bbb0d554"></script>
+<script defer src="js/app.min.js?v=9be13b1e47"></script>
 </body>
 </html>
